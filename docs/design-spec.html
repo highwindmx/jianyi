@@ -1,0 +1,1663 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>鉴易 · 低代码可视化文件处理工作台 —— 设计方案</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --subtle:#fafbfc; --line:#e4e8ec; --line-2:#d3d9e0;
+    --text:#1b2028; --muted:#5f6772; --faint:#8b939e;
+    --accent:#2f6feb; --accent-soft:#eaf1fe;
+    --rename:#e3b505; --move:#3b82f6; --del:#e5484d; --conf:#f76b15;
+    --cat-source:#0b8fd6; --cat-order:#7c5cff; --cat-filter:#d97706; --cat-transform:#0f9d58; --cat-output:#dc2626;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ── Hero ── */
+  .hero{
+    background:linear-gradient(180deg,#fff 0%,#f8fafd 100%);
+    border-bottom:1px solid var(--line);
+    padding:56px 0 40px;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--accent);margin-bottom:16px;
+  }
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--accent);border-radius:2px}
+  h1{font-size:38px;line-height:1.25;margin:0 0 14px;letter-spacing:-0.8px;font-weight:700}
+  .lede{font-size:17px;color:var(--muted);max-width:760px;margin:0 0 26px;line-height:1.7}
+  .meta{display:flex;flex-wrap:wrap;gap:8px}
+  .tag{
+    font-size:12px;padding:4px 10px;border-radius:20px;background:#fff;
+    border:1px solid var(--line-2);color:var(--muted);
+  }
+  .tag b{color:var(--text);font-weight:600}
+
+  /* ── 目录 ── */
+  .toc{
+    position:sticky;top:0;z-index:30;background:rgba(255,255,255,.97);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+  }
+  .toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:0;padding-bottom:0;height:48px;align-items:center}
+  .toc a{
+    font-size:13px;color:var(--muted);padding:6px 12px;border-radius:6px;white-space:nowrap;
+  }
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
+
+  /* ── Section ── */
+  section{padding:56px 0;border-bottom:1px solid var(--line);scroll-margin-top:56px}
+  section:last-of-type{border-bottom:none}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .sec-num{
+    font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);
+    background:var(--accent-soft);border-radius:6px;padding:3px 9px;letter-spacing:.5px;
+  }
+  h2{font-size:26px;margin:0;letter-spacing:-0.4px;font-weight:700}
+  .sec-sub{color:var(--muted);margin:0 0 32px;max-width:820px}
+  h3{font-size:18px;margin:40px 0 14px;letter-spacing:-0.2px;font-weight:650}
+  h3:first-of-type{margin-top:8px}
+  h4{font-size:14px;margin:26px 0 10px;font-weight:650;color:var(--text)}
+  p{margin:0 0 14px;max-width:860px}
+  ul,ol{margin:0 0 16px;padding-left:22px;max-width:860px}
+  li{margin:5px 0}
+  strong{font-weight:650}
+  code{
+    font-family:var(--mono);font-size:.88em;background:#f1f4f8;
+    padding:1.5px 5px;border-radius:4px;color:#243043;
+  }
+
+  /* ── 卡片 / 表格 ── */
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:22px 24px;margin:0 0 18px;box-shadow:0 1px 2px rgba(16,24,40,.04);
+  }
+  .card-tight{padding:16px 18px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:880px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 18px;background:#fff}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{
+    background:var(--subtle);font-size:11.5px;font-weight:650;letter-spacing:.5px;
+    text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--line-2);
+  }
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fbfcfe}
+  td code{white-space:nowrap}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:18px}
+  .tbl-wrap table{margin:0;border-radius:10px}
+  .tbl-wrap th:first-child,.tbl-wrap td:first-child{padding-left:16px}
+  .tbl-wrap th:last-child,.tbl-wrap td:last-child{padding-right:16px}
+
+  /* ── 代码块 ── */
+  pre{
+    background:#fbfcfe;border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;overflow-x:auto;margin:0 0 18px;
+    font-family:var(--mono);font-size:12.6px;line-height:1.72;color:#25303f;
+  }
+  pre code{background:none;padding:0;font-size:inherit;color:inherit}
+  .k{color:#a626a4}.s{color:#3f8f4a}.c{color:#93a1b0;font-style:italic}
+  .t{color:#2f6feb}.n{color:#b45309}.p{color:#7a5af8}
+  .caption{font-size:12.5px;color:var(--faint);margin:-10px 0 20px}
+
+  /* ── 图 ── */
+  figure{margin:0 0 24px}
+  figure svg{display:block;width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:12px}
+  figcaption{font-size:12.5px;color:var(--faint);margin-top:10px;text-align:center}
+
+  /* ── 要点条 ── */
+  .callout{
+    display:flex;gap:12px;padding:14px 16px;border-radius:10px;font-size:13.8px;
+    line-height:1.65;margin:0 0 18px;
+  }
+  .callout .ico{flex:none;font-family:var(--mono);font-weight:700;font-size:13px;line-height:1.7}
+  .c-info{background:#f2f7ff;border:1px solid #d5e4ff;color:#1a4a9e}
+  .c-warn{background:#fffbeb;border:1px solid #fde9a8;color:#8a5a00}
+  .c-ok{background:#f0fbf3;border:1px solid #c9edd4;color:#0a6b32}
+  .c-danger{background:#fff4f4;border:1px solid #ffd9d9;color:#a8232a}
+
+  /* ── 读数链 ── */
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 20px}
+  .chain .rd{
+    font-family:var(--mono);font-size:13px;font-weight:600;
+    background:#fff;border:1px solid var(--line-2);border-radius:6px;padding:4px 10px;
+  }
+  .chain .rd small{display:block;font-size:10px;font-weight:400;color:var(--faint);letter-spacing:0}
+  .chain .ar{color:var(--faint);font-size:12px}
+
+  /* ── 演示时间线 ── */
+  .timeline{position:relative;padding-left:34px;margin:0 0 20px}
+  .timeline::before{
+    content:"";position:absolute;left:11px;top:8px;bottom:8px;width:2px;
+    background:linear-gradient(180deg,var(--line-2),var(--line));
+  }
+  .tl-item{position:relative;margin-bottom:16px}
+  .tl-dot{
+    position:absolute;left:-30px;top:16px;width:14px;height:14px;border-radius:50%;
+    background:#fff;border:2.5px solid var(--line-2);
+  }
+  .tl-item.on .tl-dot{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .tl-card{
+    background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);
+  }
+  .tl-head{
+    display:flex;align-items:center;gap:10px;padding:11px 15px;
+    border-bottom:1px solid var(--line);background:var(--subtle);
+  }
+  .tl-idx{
+    font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;background:var(--cat,var(--accent));
+    width:20px;height:20px;border-radius:5px;display:grid;place-items:center;flex:none;
+  }
+  .tl-name{font-weight:650;font-size:14px}
+  .tl-read{
+    margin-left:auto;font-family:var(--mono);font-size:15px;font-weight:700;
+    color:var(--accent);letter-spacing:-0.3px;
+  }
+  .tl-read small{font-size:10.5px;font-weight:400;color:var(--faint);margin-left:4px;letter-spacing:0}
+  .tl-body{padding:13px 15px;font-size:13px;color:var(--muted)}
+  .tl-body p{margin:0 0 9px;max-width:none}
+  .tl-body p:last-child{margin-bottom:0}
+  .tl-body pre{margin:9px 0 0;font-size:12px;padding:11px 13px}
+
+  /* ── 迷你表格 ── */
+  .mini{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;margin-top:10px}
+  .mini-row{display:grid;grid-template-columns:1.5fr 1.5fr 60px;gap:0;border-bottom:1px solid #f0f3f6}
+  .mini-row:last-child{border-bottom:none}
+  .mini-row>span{padding:5px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini-row .mono{font-family:var(--mono);font-size:11.4px}
+  .mini-row.head{background:var(--subtle);color:var(--faint);font-size:10.5px;font-weight:650;letter-spacing:.4px;text-transform:uppercase}
+  .mini-row.hl-rename{background:#fffbe8}
+  .mini-row.hl-move{background:#eef5ff}
+  .mini-row.hl-conflict{background:#fff2e6}
+
+  .pill{
+    display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:4px;
+    font-family:var(--mono);letter-spacing:.2px;
+  }
+  .p-rename{background:#fff3c4;color:#8a6100}
+  .p-move{background:#dfeeff;color:#1a56c4}
+  .p-del{background:#ffe4e4;color:#b42318}
+  .p-conf{background:#ffedd5;color:#b54708}
+  .p-keep{background:#f1f3f6;color:#5f6772}
+  .p-excl{background:#f1f3f6;color:#8b939e}
+
+  .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 20px}
+  @media(max-width:760px){.kpi{grid-template-columns:repeat(2,1fr)}}
+  .kpi-cell{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi-l{font-size:11.5px;color:var(--faint);letter-spacing:.3px;margin-bottom:2px}
+  .kpi-v{font-family:var(--mono);font-size:24px;font-weight:700;letter-spacing:-0.6px}
+  .kpi-v small{font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+
+  footer{padding:40px 0 60px;color:var(--faint);font-size:13px}
+  .hr{height:1px;background:var(--line);margin:36px 0}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">产品 + 技术设计方案</div>
+    <h1>鉴易 · 低代码可视化文件处理工作台</h1>
+    <p class="lede">
+      RPA 版的文件管理器。用鼠标把积木搭成一条文件处理流水线，每一步都实时翻译成可看的变更计划，
+      全程零代码、不记 DSL、预演与落盘彻底分离。本文档给出界面布局、积木参数定义、变更计划数据结构、
+      状态流转，以及一个 2137 个真实文件的端到端演示。
+    </p>
+    <div class="meta">
+      <span class="tag">形态 <b>桌面端 · Tauri + React</b></span>
+      <span class="tag">目标规模 <b>万级文件</b></span>
+      <span class="tag">核心原则 <b>求值与落盘解耦</b></span>
+      <span class="tag">随文档交付 <b>可交互原型</b></span>
+    </div>
+  </div>
+</div>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#s0">定位与差异</a>
+    <a href="#s1">① 主界面布局</a>
+    <a href="#s2">② 积木清单与参数</a>
+    <a href="#s3">③ 变更计划数据结构</a>
+    <a href="#s4">④ 状态流转</a>
+    <a href="#s5">⑤ 端到端演示</a>
+    <a href="#s6">架构与落地</a>
+  </div>
+</nav>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section id="s0">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">00</span><h2>定位：把"渐进式操作思路"翻译成可视化的东西</h2></div>
+    <p class="sec-sub">目标用户不是要写脚本的人，而是有一堆一次性、频繁变动的整理需求、又不敢盲操作文件的人。</p>
+
+    <div class="grid-3">
+      <div class="card card-tight">
+        <h4 style="margin-top:0">一次性 + 频繁变动</h4>
+        <p style="margin:0;font-size:13.5px;color:var(--muted)">"这次把下载文件夹里的歌整理一下"——需求每次都不一样，写脚本不划算，改脚本更不划算。搭积木的成本必须低于写脚本。</p>
+      </div>
+      <div class="card card-tight">
+        <h4 style="margin-top:0">不敢盲操作</h4>
+        <p style="margin:0;font-size:13.5px;color:var(--muted)">"我点了执行，然后 2000 个文件全乱了"是这类工具最大的恐惧。所以每一步都必须能看见结果，且执行必须可撤销。</p>
+      </div>
+      <div class="card card-tight">
+        <h4 style="margin-top:0">要的是过程不是规则表</h4>
+        <p style="margin:0;font-size:13.5px;color:var(--muted)">人的思路是"先筛、再排除、去空格、加序号"，是<b>有顺序的流水线</b>，不是一堆同时生效的规则。规则表的工具表达不了"上一步的输出"。</p>
+      </div>
+    </div>
+
+    <h3>与现有工具的差异</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th style="width:170px">工具</th><th>它擅长什么</th><th>为什么解决不了这个问题</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Advanced Renamer</b><br><span style="color:var(--faint);font-size:12px">PowerRename / Bulk Rename Utility</span></td>
+            <td>批量重命名，规则表形式，单步</td>
+            <td>只有重命名。没有流程编排——不能"先筛掉 1577 个非音频再改名"，也不能改名后移动到目标目录。</td>
+          </tr>
+          <tr>
+            <td><b>Node-RED / Apache NiFi</b></td>
+            <td>可视化节点图，长期运行的数据管道</td>
+            <td>心智模型是"部署一条常驻管道"，要理解节点、连线、消息、触发器。对"我现在想整理一下这个文件夹"来说太重，且不面向文件管理场景。</td>
+          </tr>
+          <tr>
+            <td><b>脚本（PowerShell / Python）</b></td>
+            <td>通用、可复用、能进版本库</td>
+            <td>要写代码；更重要的是<b>没有实时预览</b>——写完才知道对不对，改一次跑一次，风险不可控。</td>
+          </tr>
+          <tr style="background:#f7faff">
+            <td><b>鉴易</b></td>
+            <td>线性积木栈 + 逐级实时预览 + 计划与执行解耦</td>
+            <td style="color:var(--muted)">——</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout c-info">
+      <span class="ico">↳</span>
+      <div>
+        <b>一句话记住产品内核：</b>积木栈不碰磁盘，它只被编译成一份"变更计划"；
+        你看到的那张大表格，就是这份计划的可视化。点执行之前，磁盘上什么都没发生。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="s1">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">①</span><h2>主界面布局</h2></div>
+    <p class="sec-sub">三栏 + 一条读数链。左侧是"我做了什么"，中间是"结果长什么样"，右侧是"这一步怎么配"，底部是"现在还剩下多少"。</p>
+
+    <figure>
+      <svg viewBox="0 0 1080 660" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Microsoft YaHei,sans-serif">
+        <defs>
+          <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="#8b939e"/>
+          </marker>
+          <marker id="arb" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 z" fill="#2f6feb"/>
+          </marker>
+        </defs>
+
+        <!-- 外框 -->
+        <rect x="20" y="18" width="1040" height="624" rx="12" fill="#fff" stroke="#d3d9e0"/>
+
+        <!-- 顶栏 -->
+        <rect x="20" y="18" width="1040" height="46" rx="12" fill="#fff" stroke="#d3d9e0"/>
+        <rect x="20" y="52" width="1040" height="12" fill="#fff"/>
+        <line x1="20" y1="64" x2="1060" y2="64" stroke="#e4e8ec"/>
+        <rect x="36" y="32" width="20" height="20" rx="5" fill="#2f6feb"/>
+        <text x="46" y="46" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">鉴</text>
+        <text x="64" y="47" font-size="13" font-weight="700" fill="#1b2028">鉴易</text>
+        <text x="102" y="47" font-size="11" fill="#8b939e">文件流程工作台</text>
+        <line x1="186" y1="32" x2="186" y2="50" stroke="#e4e8ec"/>
+        <text x="200" y="47" font-size="12" fill="#1b2028" font-weight="600">整理下载文件夹 · 音乐归档</text>
+        <rect x="392" y="33" width="56" height="22" rx="5" fill="none" stroke="#d3d9e0"/>
+        <text x="420" y="48" font-size="11" fill="#5f6772" text-anchor="middle">模板 ▾</text>
+        <rect x="456" y="33" width="52" height="22" rx="5" fill="none" stroke="#d3d9e0"/>
+        <text x="482" y="48" font-size="11" fill="#5f6772" text-anchor="middle">导出</text>
+        <rect x="516" y="33" width="52" height="22" rx="5" fill="none" stroke="#d3d9e0"/>
+        <text x="542" y="48" font-size="11" fill="#5f6772" text-anchor="middle">导入</text>
+        <text x="690" y="47" font-size="11" fill="#8b939e">预览不落盘 · Ctrl+↵ 执行</text>
+        <rect x="900" y="30" width="140" height="26" rx="6" fill="#2f6feb"/>
+        <text x="970" y="47" font-size="12" fill="#fff" text-anchor="middle" font-weight="600">▶ 一键执行 486</text>
+
+        <!-- 左栏 -->
+        <rect x="20" y="64" width="286" height="540" fill="#fafbfc"/>
+        <line x1="306" y1="64" x2="306" y2="604" stroke="#e4e8ec"/>
+        <text x="38" y="88" font-size="10.5" font-weight="700" fill="#8b939e" letter-spacing="1">积木栈</text>
+        <text x="86" y="88" font-size="11" fill="#8b939e">7 步</text>
+
+        <!-- 积木卡片 -->
+        <g>
+          <!-- 0 -->
+          <rect x="34" y="98" width="258" height="42" rx="7" fill="#f7fbff" stroke="#e4e8ec"/>
+          <rect x="34" y="98" width="3" height="42" rx="1.5" fill="#0b8fd6"/>
+          <text x="46" y="123" font-size="10" fill="#8b939e" font-weight="700">源</text>
+          <text x="64" y="123" font-size="12.5" font-weight="600" fill="#1b2028">数据源</text>
+          <rect x="246" y="110" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="122" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">2137</text>
+          <text x="64" y="134" font-size="10.5" fill="#8b939e" font-family="ui-monospace">D:/下载</text>
+        </g>
+        <g>
+          <rect x="34" y="148" width="258" height="42" rx="7" fill="#fff" stroke="#e4e8ec"/>
+          <rect x="34" y="148" width="3" height="42" rx="1.5" fill="#d97706"/>
+          <text x="47" y="173" font-size="10" fill="#8b939e" font-weight="700">1</text>
+          <text x="64" y="173" font-size="12.5" font-weight="600" fill="#1b2028">按扩展名筛选</text>
+          <rect x="246" y="160" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="172" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">560</text>
+          <text x="64" y="184" font-size="10.5" fill="#8b939e" font-family="ui-monospace">保留 .mp3 .flac .wav …</text>
+        </g>
+        <g>
+          <rect x="34" y="198" width="258" height="42" rx="7" fill="#fff" stroke="#e4e8ec"/>
+          <rect x="34" y="198" width="3" height="42" rx="1.5" fill="#d97706"/>
+          <text x="47" y="223" font-size="10" fill="#8b939e" font-weight="700">2</text>
+          <text x="64" y="223" font-size="12.5" font-weight="600" fill="#1b2028">按扩展名筛选</text>
+          <rect x="246" y="210" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="222" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">486</text>
+          <text x="64" y="234" font-size="10.5" fill="#8b939e" font-family="ui-monospace">排除 .lrc .txt</text>
+        </g>
+        <g>
+          <rect x="34" y="248" width="258" height="42" rx="7" fill="#fff" stroke="#e4e8ec"/>
+          <rect x="34" y="248" width="3" height="42" rx="1.5" fill="#7c5cff"/>
+          <text x="47" y="273" font-size="10" fill="#8b939e" font-weight="700">3</text>
+          <text x="64" y="273" font-size="12.5" font-weight="600" fill="#1b2028">排序</text>
+          <rect x="246" y="260" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="272" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">486</text>
+          <text x="64" y="284" font-size="10.5" fill="#8b939e" font-family="ui-monospace">文件名 · 升序</text>
+        </g>
+        <g>
+          <rect x="34" y="298" width="258" height="42" rx="7" fill="#fff" stroke="#e4e8ec"/>
+          <rect x="34" y="298" width="3" height="42" rx="1.5" fill="#0f9d58"/>
+          <text x="47" y="323" font-size="10" fill="#8b939e" font-weight="700">4</text>
+          <text x="64" y="323" font-size="12.5" font-weight="600" fill="#1b2028">去空格</text>
+          <rect x="246" y="310" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="322" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">486</text>
+          <text x="64" y="334" font-size="10.5" fill="#8b939e" font-family="ui-monospace">清理 首尾 · 合并连续 · 含全角</text>
+        </g>
+        <g>
+          <rect x="34" y="348" width="258" height="42" rx="7" fill="#fff" stroke="#2f6feb" stroke-width="1.6"/>
+          <rect x="34" y="348" width="3" height="42" rx="1.5" fill="#0f9d58"/>
+          <text x="47" y="373" font-size="10" fill="#8b939e" font-weight="700">5</text>
+          <text x="64" y="373" font-size="12.5" font-weight="600" fill="#1b2028">模板重命名</text>
+          <rect x="246" y="360" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="372" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">486</text>
+          <text x="64" y="384" font-size="10.5" fill="#8b939e" font-family="ui-monospace">{序号:3}_{原名}</text>
+        </g>
+        <g>
+          <rect x="34" y="398" width="258" height="42" rx="7" fill="#fff" stroke="#e4e8ec"/>
+          <rect x="34" y="398" width="3" height="42" rx="1.5" fill="#dc2626"/>
+          <text x="47" y="423" font-size="10" fill="#8b939e" font-weight="700">6</text>
+          <text x="64" y="423" font-size="12.5" font-weight="600" fill="#1b2028">移动 / 复制</text>
+          <rect x="246" y="410" width="36" height="16" rx="3" fill="#f0f2f5"/>
+          <text x="264" y="422" font-size="10" fill="#5f6772" text-anchor="middle" font-family="ui-monospace">486</text>
+          <text x="64" y="434" font-size="10.5" fill="#8b939e" font-family="ui-monospace">移至 D:/整理/音乐</text>
+        </g>
+        <rect x="34" y="452" width="258" height="32" rx="7" fill="none" stroke="#d3d9e0" stroke-dasharray="4 3"/>
+        <text x="163" y="472" font-size="12" fill="#8b939e" text-anchor="middle">＋ 添加积木</text>
+
+        <!-- 中栏 -->
+        <rect x="306" y="64" width="498" height="540" fill="#fff"/>
+        <line x1="804" y1="64" x2="804" y2="604" stroke="#e4e8ec"/>
+        <text x="322" y="88" font-size="10.5" font-weight="700" fill="#8b939e" letter-spacing="1">预览</text>
+        <text x="366" y="88" font-size="12" font-weight="600" fill="#1b2028">第 5 步 · 模板重命名</text>
+        <text x="640" y="88" font-size="10.5" fill="#8b939e" font-family="ui-monospace">486 / 2137 参与</text>
+        <line x1="306" y1="98" x2="804" y2="98" stroke="#e4e8ec"/>
+
+        <!-- 工具栏 -->
+        <rect x="318" y="106" width="150" height="24" rx="5" fill="#fafbfc" stroke="#d3d9e0"/>
+        <text x="330" y="122" font-size="10.5" fill="#8b939e">🔍 搜索文件名或路径</text>
+        <rect x="478" y="106" width="176" height="24" rx="5" fill="#fff" stroke="#d3d9e0"/>
+        <rect x="479" y="107" width="40" height="22" rx="4" fill="#eaf1fe"/>
+        <text x="499" y="122" font-size="10" fill="#1a56c4" text-anchor="middle" font-weight="600">全部</text>
+        <text x="536" y="122" font-size="10" fill="#5f6772" text-anchor="middle">仅变更</text>
+        <text x="580" y="122" font-size="10" fill="#5f6772" text-anchor="middle">仅冲突</text>
+        <text x="622" y="122" font-size="10" fill="#5f6772" text-anchor="middle">已排除</text>
+
+        <!-- 表头 -->
+        <rect x="306" y="138" width="498" height="24" fill="#fafbfc"/>
+        <line x1="306" y1="162" x2="804" y2="162" stroke="#e4e8ec"/>
+        <text x="314" y="154" font-size="9" fill="#8b939e" font-weight="700">☑</text>
+        <text x="334" y="154" font-size="9" fill="#8b939e" font-weight="700">原始文件名</text>
+        <text x="446" y="154" font-size="9" fill="#8b939e" font-weight="700">原路径</text>
+        <text x="536" y="154" font-size="9" fill="#8b939e" font-weight="700">新文件名</text>
+        <text x="654" y="154" font-size="9" fill="#8b939e" font-weight="700">新路径</text>
+        <text x="726" y="154" font-size="9" fill="#8b939e" font-weight="700">状态</text>
+        <text x="768" y="154" font-size="9" fill="#8b939e" font-weight="700">原因</text>
+
+        <!-- 数据行 -->
+        <g font-family="ui-monospace" font-size="9.5">
+          <!-- 冲突行 -->
+          <rect x="306" y="162" width="498" height="22" fill="#fff2e6"/>
+          <rect x="306" y="162" width="2.5" height="22" fill="#f76b15"/>
+          <rect x="313" y="169" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+          <text x="334" y="177" fill="#1b2028">陈奕迅 - 搁浅.mp3</text>
+          <text x="446" y="177" fill="#8b939e">D:/下载/音乐/欧美</text>
+          <text x="536" y="177" fill="#1a56c4">001_陈奕迅 - 搁浅.mp3</text>
+          <text x="654" y="177" fill="#8b939e">D:/整理/音乐</text>
+          <rect x="722" y="167" width="30" height="13" rx="3" fill="#ffedd5" stroke="#fed7aa"/>
+          <text x="737" y="177" font-size="9" fill="#b54708" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">冲突</text>
+          <text x="766" y="177" font-size="9" fill="#8b939e">已存在</text>
+
+          <!-- 改名行 x4 -->
+          <g>
+            <rect x="306" y="184" width="498" height="22" fill="#fffbe8"/>
+            <rect x="306" y="184" width="2.5" height="22" fill="#e3b505"/>
+            <rect x="313" y="191" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="199" fill="#1b2028">陈奕迅 - 红模仿.mp3</text>
+            <text x="446" y="199" fill="#8b939e">D:/下载/音乐/日语</text>
+            <text x="536" y="199" fill="#1a56c4">002_陈奕迅 - 红模仿.mp3</text>
+            <text x="654" y="199" fill="#8b939e">—</text>
+            <rect x="722" y="189" width="30" height="13" rx="3" fill="#fff3c4" stroke="#f0d97a"/>
+            <text x="737" y="199" font-size="9" fill="#8a6100" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">改名</text>
+            <text x="766" y="199" font-size="9" fill="#8b939e">改名</text>
+          </g>
+          <g>
+            <rect x="306" y="206" width="498" height="22" fill="#fffbe8"/>
+            <rect x="306" y="206" width="2.5" height="22" fill="#e3b505"/>
+            <rect x="313" y="213" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="221" fill="#1b2028">陈奕迅 - 龙卷风.mp3</text>
+            <text x="446" y="221" fill="#8b939e">D:/下载/音乐</text>
+            <text x="536" y="221" fill="#1a56c4">003_陈奕迅 - 龙卷风.mp3</text>
+            <text x="654" y="221" fill="#8b939e">—</text>
+            <rect x="722" y="211" width="30" height="13" rx="3" fill="#fff3c4" stroke="#f0d97a"/>
+            <text x="737" y="221" font-size="9" fill="#8a6100" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">改名</text>
+            <text x="766" y="221" font-size="9" fill="#8b939e">改名</text>
+          </g>
+          <g>
+            <rect x="306" y="228" width="498" height="22" fill="#fffbe8"/>
+            <rect x="306" y="228" width="2.5" height="22" fill="#e3b505"/>
+            <rect x="313" y="235" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="243" fill="#1b2028">陈奕迅 - 前世情人.mp3</text>
+            <text x="446" y="243" fill="#8b939e">D:/下载/音乐/华语</text>
+            <text x="536" y="243" fill="#1a56c4">004_陈奕迅 - 前世情人.mp3</text>
+            <text x="654" y="243" fill="#8b939e">—</text>
+            <rect x="722" y="233" width="30" height="13" rx="3" fill="#fff3c4" stroke="#f0d97a"/>
+            <text x="737" y="243" font-size="9" fill="#8a6100" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">改名</text>
+            <text x="766" y="243" font-size="9" fill="#8b939e">改名</text>
+          </g>
+          <g>
+            <rect x="306" y="250" width="498" height="22" fill="#fffbe8"/>
+            <rect x="306" y="250" width="2.5" height="22" fill="#e3b505"/>
+            <rect x="313" y="257" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="265" fill="#1b2028">周杰伦 - 七里香.mp3</text>
+            <text x="446" y="265" fill="#8b939e">D:/下载/音乐</text>
+            <text x="536" y="265" fill="#1a56c4">006_周杰伦 - 七里香.mp3</text>
+            <text x="654" y="265" fill="#8b939e">—</text>
+            <rect x="722" y="255" width="30" height="13" rx="3" fill="#fff3c4" stroke="#f0d97a"/>
+            <text x="737" y="265" font-size="9" fill="#8a6100" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">改名</text>
+            <text x="766" y="265" font-size="9" fill="#8b939e">改名</text>
+          </g>
+          <!-- 灰行（被排除） -->
+          <g opacity="0.5">
+            <rect x="306" y="272" width="498" height="22" fill="#fafafa"/>
+            <rect x="313" y="279" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="287" fill="#5f6772">IMG_0001.jpg</text>
+            <text x="446" y="287" fill="#8b939e">D:/下载/图片</text>
+            <text x="536" y="287" fill="#8b939e">—</text>
+            <text x="654" y="287" fill="#8b939e">—</text>
+            <rect x="722" y="277" width="34" height="13" rx="3" fill="#f1f3f6" stroke="#e4e8ec"/>
+            <text x="739" y="287" font-size="9" fill="#8b939e" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">已排除</text>
+            <text x="766" y="287" font-size="9" fill="#8b939e">被筛除</text>
+          </g>
+          <g opacity="0.5">
+            <rect x="306" y="294" width="498" height="22" fill="#fafafa"/>
+            <rect x="313" y="301" width="8" height="8" rx="2" fill="#fff" stroke="#c3cad3"/>
+            <text x="334" y="309" fill="#5f6772">周杰伦 - 稻香.lrc</text>
+            <text x="446" y="309" fill="#8b939e">D:/下载/音乐</text>
+            <text x="536" y="309" fill="#8b939e">—</text>
+            <text x="654" y="309" fill="#8b939e">—</text>
+            <rect x="722" y="299" width="34" height="13" rx="3" fill="#f1f3f6" stroke="#e4e8ec"/>
+            <text x="739" y="309" font-size="9" fill="#8b939e" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="600">已排除</text>
+            <text x="766" y="309" font-size="9" fill="#8b939e">被筛除</text>
+          </g>
+        </g>
+        <!-- 滚动条 -->
+        <rect x="796" y="162" width="6" height="400" fill="#f6f8fa"/>
+        <rect x="796" y="170" width="6" height="120" rx="3" fill="#d9dee5"/>
+
+        <!-- 右栏 -->
+        <rect x="804" y="64" width="256" height="540" fill="#fff"/>
+        <text x="822" y="88" font-size="10.5" font-weight="700" fill="#8b939e" letter-spacing="1">参数</text>
+        <text x="1000" y="88" font-size="9.5" fill="#8b939e" font-family="ui-monospace">rename.template</text>
+        <line x1="804" y1="98" x2="1060" y2="98" stroke="#e4e8ec"/>
+        <rect x="822" y="110" width="26" height="26" rx="6" fill="#e8f7ef"/>
+        <text x="835" y="128" font-size="12" fill="#0f9d58" text-anchor="middle">🏷</text>
+        <text x="858" y="122" font-size="13" font-weight="650" fill="#1b2028">模板重命名</text>
+        <text x="858" y="136" font-size="10" fill="#8b939e">用变量拼出新文件名</text>
+
+        <text x="822" y="164" font-size="11" font-weight="600" fill="#1b2028">文件名模板</text>
+        <rect x="822" y="172" width="220" height="44" rx="5" fill="#fff" stroke="#d3d9e0"/>
+        <text x="832" y="190" font-size="11" fill="#25303f" font-family="ui-monospace">{序号:3}_{原名}</text>
+        <text x="832" y="206" font-size="11" fill="#25303f" font-family="ui-monospace"> </text>
+        <g font-family="ui-monospace" font-size="9">
+          <rect x="822" y="222" width="38" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="841" y="233" fill="#445" text-anchor="middle">{原名}</text>
+          <rect x="864" y="222" width="38" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="883" y="233" fill="#445" text-anchor="middle">{全名}</text>
+          <rect x="906" y="222" width="46" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="929" y="233" fill="#445" text-anchor="middle">{扩展名}</text>
+          <rect x="956" y="222" width="38" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="975" y="233" fill="#445" text-anchor="middle">{序号}</text>
+          <rect x="822" y="242" width="50" height="16" rx="3" fill="#eaf1fe" stroke="#b9d0fb"/>
+          <text x="847" y="253" fill="#1a56c4" text-anchor="middle">{序号:3}</text>
+          <rect x="876" y="242" width="38" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="895" y="253" fill="#445" text-anchor="middle">{日期}</text>
+          <rect x="918" y="242" width="38" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="937" y="253" fill="#445" text-anchor="middle">{大小}</text>
+          <rect x="960" y="242" width="60" height="16" rx="3" fill="#f3f5f8" stroke="#e4e8ec"/>
+          <text x="990" y="253" fill="#445" text-anchor="middle">{上级目录}</text>
+        </g>
+        <rect x="822" y="268" width="220" height="30" rx="5" fill="#fafbfc" stroke="#e4e8ec"/>
+        <text x="832" y="287" font-size="10" fill="#8b939e" font-family="ui-monospace">陈奕迅 - 搁浅.mp3 → </text>
+        <text x="960" y="287" font-size="10" fill="#1a56c4" font-family="ui-monospace">001_陈奕迅…</text>
+
+        <text x="822" y="322" font-size="11" font-weight="600" fill="#1b2028">序号起始</text>
+        <rect x="822" y="330" width="220" height="26" rx="5" fill="#fff" stroke="#d3d9e0"/>
+        <text x="832" y="347" font-size="11" fill="#25303f" font-family="ui-monospace">1</text>
+
+        <text x="822" y="380" font-size="11" font-weight="600" fill="#1b2028">保留原扩展名</text>
+        <rect x="1006" y="369" width="36" height="20" rx="10" fill="#2f6feb"/>
+        <circle cx="1032" cy="379" r="8" fill="#fff"/>
+
+        <!-- 状态栏 -->
+        <rect x="20" y="604" width="1040" height="38" fill="#fff"/>
+        <line x1="20" y1="604" x2="1060" y2="604" stroke="#e4e8ec"/>
+        <text x="36" y="627" font-size="10" fill="#8b939e">读数</text>
+        <g font-family="ui-monospace" font-size="10.5" fill="#5f6772">
+          <rect x="66" y="614" width="42" height="18" rx="4" fill="#fff"/>
+          <text x="87" y="627" text-anchor="middle">2137</text>
+          <text x="112" y="627" fill="#8b939e">→</text>
+          <rect x="122" y="614" width="36" height="18" rx="4" fill="#fff"/>
+          <text x="140" y="627" text-anchor="middle">560</text>
+          <text x="162" y="627" fill="#8b939e">→</text>
+          <rect x="172" y="614" width="36" height="18" rx="4" fill="#fff"/>
+          <text x="190" y="627" text-anchor="middle">486</text>
+          <text x="212" y="627" fill="#8b939e">→</text>
+          <rect x="222" y="614" width="36" height="18" rx="4" fill="#fff"/>
+          <text x="240" y="627" text-anchor="middle">486</text>
+          <text x="262" y="627" fill="#8b939e">→</text>
+          <rect x="272" y="614" width="36" height="18" rx="4" fill="#fff"/>
+          <text x="290" y="627" text-anchor="middle">486</text>
+          <text x="312" y="627" fill="#8b939e">→</text>
+          <rect x="322" y="614" width="36" height="18" rx="4" fill="#eaf1fe" stroke="#c7dafb"/>
+          <text x="340" y="627" text-anchor="middle" fill="#1a56c4" font-weight="700">486</text>
+          <text x="362" y="627" fill="#8b939e">→</text>
+          <rect x="372" y="614" width="36" height="18" rx="4" fill="#fff"/>
+          <text x="390" y="627" text-anchor="middle">486</text>
+        </g>
+        <line x1="424" y1="616" x2="424" y2="630" stroke="#e4e8ec"/>
+        <g font-size="10.5" font-family="ui-monospace" fill="#5f6772">
+          <rect x="436" y="618" width="7" height="7" rx="2" fill="#e3b505"/>
+          <text x="448" y="627">改名 486</text>
+          <rect x="504" y="618" width="7" height="7" rx="2" fill="#3b82f6"/>
+          <text x="516" y="627">移动 486</text>
+          <rect x="572" y="618" width="7" height="7" rx="2" fill="#e5484d"/>
+          <text x="584" y="627">删除 0</text>
+          <rect x="634" y="618" width="7" height="7" rx="2" fill="#f76b15"/>
+          <text x="646" y="627">冲突 5</text>
+        </g>
+        <text x="880" y="627" font-size="10" fill="#8b939e" font-family="ui-monospace">15.0ms · 7 步</text>
+
+        <!-- 图注 -->
+        <text x="36" y="580" font-size="10" fill="#b0b7c0">A 积木栈 · B 预览表格 · C 参数面板 · D 状态栏读数链</text>
+      </svg>
+      <figcaption>图 1 · 主界面（1560×940）。左 A 积木栈、中 B 预览表格、右 C 参数面板、底 D 状态栏读数链</figcaption>
+    </figure>
+
+    <h3>四块区域的职责与联动</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:96px">区域</th><th style="width:120px">尺寸</th><th>职责</th><th style="width:300px">联动规则</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>A · 积木栈</b></td>
+            <td>306px 固定</td>
+            <td>纵向步骤列表。每张卡片显示：序号、类型图标、名称、<b>本步输出数</b>、参数摘要。支持拖拽排序、禁用（旁路）、复制、删除。数据源固定在首位，不可拖出。</td>
+            <td>点击任一卡片 → 中栏立刻切到该步的输出；卡片上的数字与状态栏读数链同源。</td>
+          </tr>
+          <tr>
+            <td><b>B · 预览表格</b></td>
+            <td>自适应（最小 480px）</td>
+            <td>当前选中积木的输出。双列对比：原始文件名/路径 → 新文件名/新路径。行按变更类型着色。每行可勾选排除。</td>
+            <td>参数改动 → 150ms 后重算 → 表格刷新；勾选某行 → 该文件退出后续所有步骤，但仍以"已排除"留在表里。</td>
+          </tr>
+          <tr>
+            <td><b>C · 参数面板</b></td>
+            <td>348px 固定</td>
+            <td>按积木自己声明的 <code>fields</code> 自动渲染表单。模板积木带变量插入按钮 + 实时样例；筛选积木带扩展名 chips。</td>
+            <td>参数错误（非法正则、未知变量）在面板内即时红字，不等整条栈重算。</td>
+          </tr>
+          <tr>
+            <td><b>D · 状态栏</b></td>
+            <td>38px</td>
+            <td>左侧是<b>读数链</b>（2137 → 560 → 486 → 486 → 486 → 486 → 486），中间是改名/移动/删除/冲突计数，右侧是编译耗时与撤销入口。</td>
+            <td>读数链上每个数字都是按钮，点它等价于点左侧对应积木。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>为什么是"双列对比"而不是单列</h3>
+    <p>用户判断"这一步对不对"，靠的是<strong>眼睛扫一眼差异</strong>，不是读文字。所以表格必须让"原来叫什么"和"现在会叫什么"同时在场，且中间用一个 <code>→</code> 引导视线。这也是 PowerToys PowerRename 被广泛接受的原因——它把 diff 做成了第一公民。</p>
+    <p>状态列只回答一个问题：<b>这一行接下来会发生什么</b>。取值只有六种，与行底色一一对应：</p>
+    <div class="grid-3">
+      <div class="card card-tight" style="border-left:3px solid var(--rename)"><b>改名</b><br><span style="font-size:13px;color:var(--muted)">文件名变了，位置没变</span></div>
+      <div class="card card-tight" style="border-left:3px solid var(--move)"><b>移动</b><br><span style="font-size:13px;color:var(--muted)">目录变了（可能同时改名）</span></div>
+      <div class="card card-tight" style="border-left:3px solid var(--del)"><b>删除</b><br><span style="font-size:13px;color:var(--muted)">进暂存区，可撤销</span></div>
+      <div class="card card-tight" style="border-left:3px solid var(--conf)"><b>冲突</b><br><span style="font-size:13px;color:var(--muted)">目标已存在 / 批内重名，优先级高于前三者</span></div>
+      <div class="card card-tight" style="border-left:3px solid #c3cad3"><b>保留</b><br><span style="font-size:13px;color:var(--muted)">这一步没动它</span></div>
+      <div class="card card-tight" style="border-left:3px solid #dfe3e8"><b>已排除</b><br><span style="font-size:13px;color:var(--muted)">不参与后续，但也不会被动</span></div>
+    </div>
+
+    <div class="callout c-warn">
+      <span class="ico">!</span>
+      <div>
+        <b>一个容易踩的语义坑：</b>被"筛选/排除"积木排除的文件，状态是 <code>excluded</code>（不参与后续，磁盘上原样不动），
+        而只有"删除"积木才会把状态置为 <code>deleted</code>（移入暂存区）。两者在表格里颜色不同、在计划里 action 不同，
+        混为一谈会让"我只是想筛出音频"变成"删掉 1577 个文件"。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="s2">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">②</span><h2>积木清单与参数定义</h2></div>
+    <p class="sec-sub">第一版 10 种积木，全部是纯函数。新增一种积木 = 往注册表加一项，界面不用改一行代码。</p>
+
+    <h3>统一接口</h3>
+    <p>所有积木共用同一个签名，关键在于<strong>返回的数组长度恒定</strong>——"减少条目"被降级为"改状态"。这是整套设计能成立的地基。</p>
+
+<pre><code><span class="c">// 积木自己声明表单，UI 不认识任何具体积木</span>
+<span class="k">interface</span> <span class="t">StepDefinition</span>&lt;P&gt; {
+  type: <span class="t">string</span>;              <span class="c">// 'rename.template' —— 也是项目文件里的 type 字段</span>
+  name: <span class="t">string</span>;
+  category: <span class="s">'source'</span> | <span class="s">'order'</span> | <span class="s">'filter'</span> | <span class="s">'transform'</span> | <span class="s">'output'</span>;
+  icon: <span class="t">string</span>;
+  fields: <span class="t">FieldSpec</span>[];          <span class="c">// 右侧面板据此渲染</span>
+  defaults: P;
+  validate?: (p: P, ctx: <span class="t">StepContext</span>) =&gt; <span class="t">StepIssue</span>[];  <span class="c">// 参数级即时校验</span>
+  summary: (p: P) =&gt; <span class="t">string</span>;    <span class="c">// 积木卡片上的副标题</span>
+  run: (items: <span class="k">readonly</span> <span class="t">FileItem</span>[], p: P, ctx: <span class="t">StepContext</span>, stepId: <span class="t">string</span>) =&gt; <span class="t">StepResult</span>;
+}
+
+<span class="k">interface</span> <span class="t">StepResult</span> {
+  items: <span class="t">FileItem</span>[];        <span class="c">// 长度与输入完全相同</span>
+  issues: <span class="t">StepIssue</span>[];
+  stats: { total: <span class="t">number</span>; active: <span class="t">number</span>; changed: <span class="t">number</span>; dropped: <span class="t">number</span> };
+}</code></pre>
+
+    <div class="callout c-info">
+      <span class="ico">↳</span>
+      <div>
+        <code>StepContext</code> 里<b>没有 adapter</b>。这是硬约束：一旦 <code>run</code> 能碰磁盘，它就不再是纯函数，实时预览、可测试、可重放这三件事会同时崩掉。
+        扫描发生在编译入口（边界处）一次，此后全程同步。
+      </div>
+    </div>
+
+    <h3>10 种积木的参数定义</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:130px">type</th>
+            <th style="width:104px">名称</th>
+            <th style="width:64px">分类</th>
+            <th style="width:250px">参数</th>
+            <th style="width:150px">默认值</th>
+            <th>产出 / 校验</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>source.scan</code></td>
+            <td><b>数据源</b></td>
+            <td><span class="pill p-keep">source</span></td>
+            <td><code>path</code> 文件夹<br><code>recursive</code> 含子文件夹<br><code>includeHidden</code> 含隐藏文件</td>
+            <td><code>D:/下载</code><br><code>true</code> / <code>false</code></td>
+            <td>恒等变换（扫描在边界完成）。<br>校验：路径不能为空。</td>
+          </tr>
+          <tr>
+            <td><code>order.sort</code></td>
+            <td><b>排序</b></td>
+            <td><span class="pill p-keep">order</span></td>
+            <td><code>by</code>: name | ext | size | mtime | path<br><code>order</code>: asc | desc<br><code>natural</code> 自然排序</td>
+            <td><code>name</code><br><code>asc</code><br><code>true</code></td>
+            <td>重排数组顺序。<b>它是 <code>{序号}</code> 的编号依据</b>，所以必须排在重命名之前。</td>
+          </tr>
+          <tr>
+            <td><code>filter.extension</code></td>
+            <td><b>按扩展名筛选</b></td>
+            <td><span class="pill p-keep">filter</span></td>
+            <td><code>mode</code>: keep | exclude<br><code>exts</code>: 扩展名数组</td>
+            <td><code>keep</code><br><code>['.mp3','.flac','.wav','.m4a']</code></td>
+            <td>命中的置 <code>excluded</code>（不动磁盘）。<br>校验：至少选一个扩展名，否则本步空转。</td>
+          </tr>
+          <tr>
+            <td><code>filter.rule</code></td>
+            <td><b>条件筛选</b></td>
+            <td><span class="pill p-keep">filter</span></td>
+            <td><code>mode</code><br><code>glob</code> 通配符<br><code>regex</code> 正则<br><code>minKb</code>/<code>maxKb</code><br><code>after</code>/<code>before</code> 日期</td>
+            <td><code>exclude</code>，其余空</td>
+            <td>多个条件 <b>AND</b> 组合，全部命中才算命中。<br>校验：正则合法性。</td>
+          </tr>
+          <tr>
+            <td><code>transform.trim</code></td>
+            <td><b>去空格</b></td>
+            <td><span class="pill p-keep">transform</span></td>
+            <td><code>where</code>: both | leading | trailing<br><code>collapse</code> 合并连续空格<br><code>fullWidth</code> 处理全角空格</td>
+            <td><code>both</code><br><code>true</code><br><code>true</code></td>
+            <td>只作用于主干，扩展名原样保留。<br>先转全角再 trim，顺序不能反。</td>
+          </tr>
+          <tr>
+            <td><code>transform.case</code></td>
+            <td><b>大小写</b></td>
+            <td><span class="pill p-keep">transform</span></td>
+            <td><code>mode</code>: lower | upper | title | sentence<br><code>target</code>: base | ext | both</td>
+            <td><code>title</code><br><code>base</code></td>
+            <td>词首大写按空格、<code>-</code>、<code>_</code> 切词。</td>
+          </tr>
+          <tr>
+            <td><code>transform.replace</code></td>
+            <td><b>查找替换</b></td>
+            <td><span class="pill p-keep">transform</span></td>
+            <td><code>find</code> / <code>replace</code><br><code>isRegex</code><br><code>global</code><br><code>caseSensitive</code></td>
+            <td>空<br><code>false</code> / <code>true</code> / <code>false</code></td>
+            <td>支持 <code>$1</code> 捕获组。<br>校验：正则编译失败、查找内容为空。</td>
+          </tr>
+          <tr>
+            <td><code>rename.template</code></td>
+            <td><b>模板重命名</b></td>
+            <td><span class="pill p-keep">transform</span></td>
+            <td><code>template</code> 模板串<br><code>startAt</code> 序号起始<br><code>keepExt</code> 保留扩展名</td>
+            <td><code>{原名}</code><br><code>1</code><br><code>true</code></td>
+            <td>序号 = 条目在当前数组中的位置。<br>校验：未知变量、非法文件名（逐个条目）。</td>
+          </tr>
+          <tr>
+            <td><code>output.move</code></td>
+            <td><b>移动 / 复制</b></td>
+            <td><span class="pill p-keep">output</span></td>
+            <td><code>targetDir</code> 目标文件夹<br><code>operation</code>: move | copy<br><code>subPath</code> 子目录模板</td>
+            <td><code>D:/整理/音乐</code><br><code>move</code><br>空</td>
+            <td>改写 <code>cur.dir</code>。<code>subPath</code> 支持 <code>{日期:YYYY-MM}</code> 按月归档。<br>校验：目标不能为空。</td>
+          </tr>
+          <tr>
+            <td><code>output.delete</code></td>
+            <td><b>删除</b></td>
+            <td><span class="pill p-keep">output</span></td>
+            <td><code>glob</code> 只删匹配的（留空 = 全删）</td>
+            <td>空</td>
+            <td>置 <code>deleted</code>，执行时<b>移入暂存区</b>。<br>留空时弹警告："将删除全部 N 个"。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>模板变量表</h3>
+    <p>模板只写"主干"，扩展名默认由 <code>keepExt</code> 保留——这样用户不需要每次都记得写 <code>{扩展名}</code>，也就不会写出 <code>歌.mp3.mp3</code>。</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:150px">变量</th><th>含义</th><th style="width:200px">样例输出</th></tr></thead>
+        <tbody>
+          <tr><td><code>{原名}</code></td><td>当前主干（已应用上游所有改名步骤的结果）</td><td><code>陈奕迅 - 搁浅</code></td></tr>
+          <tr><td><code>{全名}</code></td><td>当前完整文件名（含扩展名）</td><td><code>陈奕迅 - 搁浅.mp3</code></td></tr>
+          <tr><td><code>{扩展名}</code></td><td>扩展名，不含点</td><td><code>mp3</code></td></tr>
+          <tr><td><code>{序号}</code></td><td>当前顺序位，1 起</td><td><code>7</code></td></tr>
+          <tr><td><code>{序号:3}</code></td><td>补零到指定位数</td><td><code>007</code></td></tr>
+          <tr><td><code>{日期}</code></td><td>修改日期，YYYYMMDD</td><td><code>20240513</code></td></tr>
+          <tr><td><code>{日期:YYYY-MM}</code></td><td>自定义格式，支持 YYYY/MM/DD/hh/mm</td><td><code>2024-05</code></td></tr>
+          <tr><td><code>{大小}</code></td><td>体积，KB 取整</td><td><code>8420</code></td></tr>
+          <tr><td><code>{上级目录}</code></td><td>当前所在目录名</td><td><code>欧美</code></td></tr>
+          <tr><td><code>{源目录}</code></td><td>原始目录名</td><td><code>下载</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout c-ok">
+      <span class="ico">✓</span>
+      <div>
+        <b>链式叠加是天然的：</b>多个重命名积木串联时，后一个读到的 <code>{原名}</code> 就是前一个的输出。
+        不需要"规则合并"这种复杂机制——数组里那条记录被一步步改写，最后长什么样就是什么样。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="s3">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">③</span><h2>变更计划的数据结构</h2></div>
+    <p class="sec-sub">积木栈编译出的<b>唯一产物</b>。执行器只认这个结构，完全不理解积木是什么；反过来，积木也完全不知道磁盘长什么样。</p>
+
+    <h3>条目模型：一条记录贯穿全程</h3>
+    <p>所有积木都在同一条 <code>FileItem</code> 上工作。<code>origin</code> 只读，永远记录"它原本是什么"；<code>cur</code> 可变，记录"现在它变成什么"。</p>
+
+<pre><code><span class="k">interface</span> <span class="t">FileItem</span> {
+  <span class="k">readonly</span> id: <span class="t">ItemId</span>;        <span class="c">// = pathKey(原绝对路径)，跨重算稳定</span>
+  <span class="k">readonly</span> origin: {             <span class="c">// 永不修改</span>
+    <span class="k">readonly</span> dir: <span class="t">string</span>; <span class="k">readonly</span> name: <span class="t">string</span>;
+    <span class="k">readonly</span> base: <span class="t">string</span>; <span class="k">readonly</span> ext: <span class="t">string</span>;
+    <span class="k">readonly</span> size: <span class="t">number</span>; <span class="k">readonly</span> mtimeMs: <span class="t">number</span>;
+  };
+  cur: { dir: <span class="t">string</span>; name: <span class="t">string</span>; base: <span class="t">string</span>; ext: <span class="t">string</span>; seq: <span class="t">number</span> };
+  status: <span class="s">'active'</span> | <span class="s">'excluded'</span> | <span class="s">'deleted'</span>;
+  deletedBy?: <span class="t">string</span>;         <span class="c">// 被哪一步删除</span>
+  excludedBy?: <span class="s">'manual'</span> | <span class="t">string</span>;  <span class="c">// 手动排除 or 被哪一步筛掉</span>
+  touchedBy: <span class="t">string</span>[];          <span class="c">// 哪些步骤真正改动过它（含伪步骤 '__manual__'）</span>
+  issues: <span class="t">StepIssue</span>[];
+}</code></pre>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4 style="margin-top:0">为什么删除不摘元素</h4>
+        <ul style="margin-bottom:0">
+          <li>数组长度恒定 → 行 key 稳定，虚拟滚动不跳行</li>
+          <li>最终计划 = <code>origin ↔ cur</code> 的纯 diff，不需要逐步累积旁路数据</li>
+          <li>撤销按 <code>id</code> 定位，不依赖副作用日志反查</li>
+          <li>被排除的行仍然看得见 —— 用户需要知道"我筛掉了什么"</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">为什么"用户的决定"不写在 item 上</h4>
+        <ul style="margin-bottom:0">
+          <li>勾选排除、双击改名，都是<b>用户输入</b>，不是步骤产物</li>
+          <li>如果写进 item，改一次参数重算就会被冲掉</li>
+          <li>所以存在 <code>PipelineDoc.excludedIds</code>（排除）和 <code>PipelineDoc.overrides</code>（手改）两张稀疏表</li>
+          <li>前者作为"第 0 步"的输入参与签名，后者在编译末尾盖最后一层 —— 详见 ④ 节</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>计划条目</h3>
+<pre><code><span class="k">type</span> <span class="t">PlanAction</span> = <span class="s">'keep'</span> | <span class="s">'rename'</span> | <span class="s">'move'</span> | <span class="s">'copy'</span> | <span class="s">'delete'</span>;
+
+<span class="k">interface</span> <span class="t">PlanEntry</span> {
+  itemId: <span class="t">ItemId</span>;
+  action: <span class="t">PlanAction</span>;
+  from: <span class="t">string</span>;              <span class="c">// 绝对路径</span>
+  to: <span class="t">string</span> | <span class="k">null</span>;       <span class="c">// delete 时为 null</span>
+  reason: <span class="t">string</span>;            <span class="c">// '去空格 → 模板重命名 → 移动'</span>
+  touchedBy: <span class="t">string</span>[];
+  overwrite: <span class="t">boolean</span>;         <span class="c">// 策略应用后的结果</span>
+  blocked?: <span class="t">string</span>;            <span class="c">// 不可执行的原因（非法名 / 按策略跳过）</span>
+  size: <span class="t">number</span>;
+}</code></pre>
+
+    <div class="callout c-warn">
+      <span class="ico">!</span>
+      <div>
+        <b>改名 + 移动同时发生时，只产生一条 <code>move</code>，<code>to</code> 里已经含了新名字。</b>
+        因为落盘就是一次 <code>rename(old, new)</code> 系统调用，拆成两条会凭空造出一个"改了名但还没移走"的中间状态——
+        这个状态在磁盘上从未存在过，回滚时却要处理两次。
+      </div>
+    </div>
+
+    <h3>action 语义表</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:110px">action</th><th style="width:180px">判定条件</th><th>执行动作</th><th style="width:220px">撤销方式</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill p-keep">keep</span></td><td>名称与目录都没变，或已被排除/跳过</td><td>跳过，不产生任何 IO</td><td>无需撤销</td></tr>
+          <tr><td><span class="pill p-rename">rename</span></td><td>目录不变，名称变了</td><td>同目录 <code>rename()</code>，原子</td><td><code>move(to, from)</code></td></tr>
+          <tr><td><span class="pill p-move">move</span></td><td>目录变了（可能同时改名）</td><td>同盘 <code>rename()</code>；跨盘 copy + delete</td><td>逆序 <code>move(to, from)</code></td></tr>
+          <tr><td><span class="pill p-move">copy</span></td><td>移动积木选了 copy 方式</td><td><code>copy(from, to)</code>，原文件保留</td><td>把副本移入暂存区</td></tr>
+          <tr><td><span class="pill p-del">delete</span></td><td>被删除积木置为 deleted</td><td>移入 <code>.jianyi/trash/&lt;journalId&gt;/</code></td><td><code>restore(trashPath, from)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>冲突检测：两层分工</h3>
+    <p>冲突不能只在一个地方检测，因为两类冲突的<strong>反馈时机完全不同</strong>：</p>
+    <div class="grid-2">
+      <div class="card">
+        <h4 style="margin-top:0">第一层 · 步骤内（即时）</h4>
+        <p style="font-size:13.5px;margin-bottom:6px">检测"这一条自己就不合法"：</p>
+        <ul style="margin-bottom:0;font-size:13.5px">
+          <li>非法字符 <code>\ / : * ? " &lt; &gt; |</code></li>
+          <li>空名、只有扩展名</li>
+          <li>结尾空格 / 点（Windows）</li>
+          <li>系统保留名 <code>CON PRN AUX NUL COM1…</code></li>
+          <li>超过 255 字节</li>
+        </ul>
+        <p style="font-size:13px;color:var(--faint);margin:10px 0 0">为什么要即时：这是<b>参数写错了</b>，用户改模板时就该看到红字，不能等整条栈重算完。</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">第二层 · 编译末尾（全局）</h4>
+        <p style="font-size:13.5px;margin-bottom:6px">检测"两条之间打架"或"和磁盘打架"：</p>
+        <ul style="margin-bottom:0;font-size:13.5px">
+          <li><code>TARGET_EXISTS</code> 目标已存在</li>
+          <li><code>BATCH_DUPLICATE</code> 批内两条要变成同名</li>
+          <li><code>CASE_COLLISION</code> 仅大小写不同</li>
+          <li><code>CASE_ONLY_RENAME</code> <code>a.txt → A.txt</code>（<b>放行</b>）</li>
+          <li><code>SELF_TARGET</code> 源和目标是同一个路径</li>
+          <li><code>DISK_FULL</code> 空间不足</li>
+        </ul>
+        <p style="font-size:13px;color:var(--faint);margin:10px 0 0">为什么必须全局：改名步骤<b>看不到</b>后面的移动步骤会把文件送去哪，"目标已存在"只有拿到终态才判断得出来。</p>
+      </div>
+    </div>
+
+    <div class="callout c-info">
+      <span class="ico">↳</span>
+      <div>
+        <b><code>CASE_ONLY_RENAME</code> 必须特判放行。</b>在不区分大小写的磁盘上，<code>a.txt → A.txt</code> 是完全合法的操作，
+        但按 <code>pathKey</code> 折叠后两者相同，会被误判成"目标已存在"。而首字母大写恰恰是用户最常用的改名方式之一。
+        执行时用"临时名 → 目标名"两步改名规避。
+      </div>
+    </div>
+
+    <h3>策略在计划阶段就应用，执行器不参与决策</h3>
+    <div class="grid-3">
+      <div class="card card-tight">
+        <b>skip 跳过</b>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0 0">降级为 <code>keep</code>，标 <code>blocked</code>。文件保留原名原位。</p>
+      </div>
+      <div class="card card-tight">
+        <b>overwrite 覆盖</b>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0 0">置 <code>overwrite: true</code>。执行时先把旧目标移入备份区，撤销能拿回来。</p>
+      </div>
+      <div class="card card-tight">
+        <b>autoRename 自动重命名</b>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0 0">追加 <code>(2)</code>、<code>(3)</code>…按计划顺序对"已占用目标集合"去重。</p>
+      </div>
+    </div>
+    <p>三条理由，说明为什么不能在执行时才决定：</p>
+    <ol>
+      <li><b>预演必须是真的。</b>用户点执行前看到的 <code>to</code>，就是最终会写下去的名字。如果执行时才追加 <code>(2)</code>，那张表就是在骗人。</li>
+      <li><b>改策略要能立刻重算预览。</b>切换 skip / overwrite / autoRename 时，表格应该瞬间变化，而不是"执行完才知道"。所以策略是编译参数，不是执行参数。</li>
+      <li><b>执行器要哑。</b>它只按计划落盘，代码量和出错面都小。执行器唯一保留的判断是落盘前再 <code>exists()</code> 一次（TOCTOU 兜底）。</li>
+    </ol>
+
+    <h3>计划样例（取自第 ⑤ 节真实运行）</h3>
+<pre><code>{
+  <span class="s">"itemId"</span>: <span class="s">"d:/下载/音乐/欧美/  陈奕迅 - 搁浅.mp3"</span>,
+  <span class="s">"action"</span>: <span class="s">"move"</span>,
+  <span class="s">"from"</span>:   <span class="s">"D:/下载/音乐/欧美/  陈奕迅 - 搁浅.mp3"</span>,
+  <span class="s">"to"</span>:     <span class="s">"D:/整理/音乐/001_陈奕迅 - 搁浅 (2).mp3"</span>,
+  <span class="s">"reason"</span>: <span class="s">"去空格 → 模板重命名 → 移动 / 复制 · 自动重命名"</span>,
+  <span class="s">"overwrite"</span>: <span class="k">false</span>,
+  <span class="s">"size"</span>: 6843921
+}</code></pre>
+    <p class="caption">注意 <code>to</code> 里的 <code>(2)</code>：目标目录已存在 <code>001_陈奕迅 - 搁浅.mp3</code>，
+    autoRename 策略在计划阶段就把新名字算好了。用户看到的、执行的、撤销的依据，是同一个字符串。</p>
+  </div>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="s4">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">④</span><h2>状态流转</h2></div>
+    <p class="sec-sub">从"改一个积木"到"撤销回原样"，中间只有一条主链路。所有异步都收敛在编译和落盘两个点上。</p>
+
+    <figure>
+      <svg viewBox="0 0 1080 420" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Microsoft YaHei,sans-serif">
+        <defs>
+          <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 z" fill="#5f6772"/>
+          </marker>
+          <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 z" fill="#e5484d"/>
+          </marker>
+        </defs>
+
+        <!-- 状态 -->
+        <g font-size="12.5" text-anchor="middle">
+          <rect x="26" y="168" width="118" height="46" rx="9" fill="#fff" stroke="#d3d9e0"/>
+          <text x="85" y="189" font-weight="600" fill="#1b2028">EMPTY</text>
+          <text x="85" y="204" font-size="10" fill="#8b939e">只有数据源</text>
+
+          <rect x="190" y="168" width="118" height="46" rx="9" fill="#fff" stroke="#d3d9e0"/>
+          <text x="249" y="189" font-weight="600" fill="#1b2028">SOURCED</text>
+          <text x="249" y="204" font-size="10" fill="#8b939e">已扫描 N 个文件</text>
+
+          <rect x="354" y="168" width="128" height="46" rx="9" fill="#f2f7ff" stroke="#2f6feb"/>
+          <text x="418" y="189" font-weight="600" fill="#1a56c4">PREVIEW</text>
+          <text x="418" y="204" font-size="10" fill="#5f6772">计划已生成，磁盘未动</text>
+
+          <rect x="528" y="168" width="128" height="46" rx="9" fill="#fff" stroke="#d3d9e0"/>
+          <text x="592" y="189" font-weight="600" fill="#1b2028">CONFIRMING</text>
+          <text x="592" y="204" font-size="10" fill="#8b939e">摘要 + 冲突 + 策略</text>
+
+          <rect x="702" y="168" width="118" height="46" rx="9" fill="#fff" stroke="#d3d9e0"/>
+          <text x="761" y="189" font-weight="600" fill="#1b2028">EXECUTING</text>
+          <text x="761" y="204" font-size="10" fill="#8b939e">串行落盘 + 日志</text>
+
+          <rect x="866" y="122" width="118" height="46" rx="9" fill="#f0fbf3" stroke="#0f9d58"/>
+          <text x="925" y="143" font-weight="600" fill="#0a6b32">EXECUTED</text>
+          <text x="925" y="158" font-size="10" fill="#5f6772">可撤销</text>
+
+          <rect x="866" y="214" width="118" height="46" rx="9" fill="#fff4f4" stroke="#e5484d"/>
+          <text x="925" y="235" font-weight="600" fill="#a8232a">ABORTED</text>
+          <text x="925" y="250" font-size="10" fill="#5f6772">已回滚 + 报告</text>
+
+          <rect x="866" y="318" width="118" height="42" rx="9" fill="#fff" stroke="#d3d9e0"/>
+          <text x="925" y="338" font-weight="600" fill="#1b2028">UNDONE</text>
+          <text x="925" y="353" font-size="10" fill="#8b939e">文件已复原</text>
+        </g>
+
+        <!-- 箭头 -->
+        <g stroke="#5f6772" stroke-width="1.4" fill="none" marker-end="url(#a2)" font-size="10.5">
+          <path d="M144,191 L186,191"/>
+          <path d="M308,191 L350,191"/>
+          <path d="M482,191 L524,191"/>
+          <path d="M656,191 L698,191"/>
+          <path d="M820,183 C845,183 848,150 862,148"/>
+          <path d="M820,199 C845,199 848,232 862,234"/>
+          <path d="M925,260 L925,314"/>
+          <path d="M984,145 H1020 V339 H988"/>
+        </g>
+        <g fill="#5f6772" font-size="10">
+          <text x="165" y="184" text-anchor="middle">扫描完成</text>
+          <text x="329" y="184" text-anchor="middle">首次编译</text>
+          <text x="503" y="184" text-anchor="middle">点执行</text>
+          <text x="677" y="184" text-anchor="middle">确认</text>
+          <text x="1026" y="252" font-size="10">撤销</text>
+        </g>
+
+        <!-- 回环 -->
+        <g stroke="#8b939e" stroke-width="1.3" fill="none" stroke-dasharray="5 4" marker-end="url(#a2)">
+          <path d="M418,214 L418,268 L249,268 L249,218"/>
+          <path d="M418,214 L418,290 L85,290 L85,218"/>
+        </g>
+        <g fill="#8b939e" font-size="10">
+          <text x="330" y="262" text-anchor="middle">改参数 / 加积木 / 拖排序</text>
+          <text x="250" y="306" text-anchor="middle">换数据源 → 重新扫描</text>
+        </g>
+
+        <!-- 撤销失败 -->
+        <text x="758" y="300" font-size="10" fill="#a8232a" text-anchor="middle">回滚失败 → 逐条报告，不重试</text>
+
+        <!-- 标注块 -->
+        <rect x="26" y="30" width="440" height="86" rx="9" fill="#fafbfc" stroke="#e4e8ec"/>
+        <text x="42" y="52" font-size="11" font-weight="700" fill="#8b939e" letter-spacing=".6">纯函数区（可测试 · 可重放 · 零 IO）</text>
+        <text x="42" y="74" font-size="12" fill="#5f6772">EMPTY → SOURCED → PREVIEW：任意时刻重算都是幂等的，</text>
+        <text x="42" y="92" font-size="12" fill="#5f6772">同一份 (doc, items, world) 必然得到同一份计划。</text>
+
+        <rect x="490" y="30" width="290" height="86" rx="9" fill="#fafbfc" stroke="#e4e8ec"/>
+        <text x="506" y="52" font-size="11" font-weight="700" fill="#8b939e" letter-spacing=".6">有副作用的区</text>
+        <text x="506" y="74" font-size="12" fill="#5f6772">EXECUTING 只在用户确认后进入。</text>
+        <text x="506" y="92" font-size="12" fill="#5f6772">每落盘一条，立刻 append 到 journal。</text>
+
+        <rect x="804" y="30" width="250" height="86" rx="9" fill="#fafbfc" stroke="#e4e8ec"/>
+        <text x="820" y="52" font-size="11" font-weight="700" fill="#8b939e" letter-spacing=".6">恢复区</text>
+        <text x="820" y="74" font-size="12" fill="#5f6772">EXECUTED / ABORTED 都能撤销，</text>
+        <text x="820" y="92" font-size="12" fill="#5f6772">走的是同一套逆序回滚代码。</text>
+      </svg>
+      <figcaption>图 2 · 主状态机。虚线是"重算"回环——它不改变状态，只刷新预览；EXECUTED 与 ABORTED 都能撤销。</figcaption>
+    </figure>
+
+    <h3>状态与事件表</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:120px">状态</th><th style="width:290px">进入条件</th><th>此状态下可发生的事</th><th style="width:130px">磁盘状态</th></tr></thead>
+        <tbody>
+          <tr><td><b>EMPTY</b></td><td>新建流程，只有一个数据源</td><td>选文件夹、加积木</td><td>无变化</td></tr>
+          <tr><td><b>SOURCED</b></td><td>扫描完成，items 就绪</td><td>首次编译、加积木</td><td>无变化</td></tr>
+          <tr><td><b>PREVIEW</b></td><td>至少一个积木且编译完成</td><td>改任意参数（触发重算）、勾选排除、拖排序、禁用某步、切换冲突策略</td><td>无变化</td></tr>
+          <tr><td><b>CONFIRMING</b></td><td>点"一键执行"且 <code>affected &gt; 0</code></td><td>看摘要、选策略、勾"故障注入"、取消</td><td>无变化</td></tr>
+          <tr><td><b>EXECUTING</b></td><td>确认执行</td><td>看进度、禁止编辑（frozen）</td><td>逐条变化</td></tr>
+          <tr><td><b>EXECUTED</b></td><td>全部落盘成功</td><td>撤销、关闭</td><td>已变更</td></tr>
+          <tr><td><b>ABORTED</b></td><td>某条失败 → 逆序回滚</td><td>看失败报告、逐条重试</td><td>回到执行前（或部分）</td></tr>
+          <tr><td><b>UNDONE</b></td><td>撤销完成</td><td>重新扫描、继续编辑</td><td>回到执行前</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>手动改写：一个盖在所有积木之上的终态覆盖层</h3>
+    <p>积木解决的是"批量规则"，但真实工作里总有那么几个刺头：一个文件名脏到规则写不出来，或者客户点名要某首歌叫别的名字。这时候去改积木参数是错的——改一个参数会影响另外 485 个文件。正确做法是<b>绕开规则，直接在结果上签字</b>。</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:150px">做法</th><th style="width:110px">评价</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>加一个"特例"积木</td><td style="color:#b42318"><b>不可取</b></td><td>积木必须保持纯函数与可复用。特例一旦进积木参数，参数面板会长出"例外列表"这种东西，规则和例外搅在一起，谁也不敢再动</td></tr>
+          <tr><td>让用户改文件再重扫</td><td style="color:#b42318"><b>不可取</b></td><td>用户的诉求是"在这个流程里叫这个名字"，不是"去磁盘上改名"。而且重扫会让所有 id 失效，用户之前做的勾选全丢</td></tr>
+          <tr><td>终态覆盖层（采用）</td><td style="color:#067647"><b>采用</b></td><td>不动积木、不动条目，只在编译末尾对指定 id 叠一层补丁。改积木不影响它，它也不影响别人</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+<pre><code><span class="c">// PipelineDoc 里多一个字段：以 itemId 为键的稀疏表</span>
+<span class="t">overrides</span>: Record&lt;ItemId, { name?: <span class="s">string</span>; dir?: <span class="s">string</span> }&gt;
+
+<span class="c">// 编译末尾：所有积木跑完之后，最后一道工序</span>
+<span class="k">function</span> <span class="t">applyOverrides</span>(items, overrides) {
+  <span class="k">return</span> items.<span class="t">map</span>((it) =&gt; {
+    <span class="k">const</span> ov = overrides[it.id];
+    <span class="k">if</span> (!ov || it.status !== <span class="s">'active'</span>) <span class="k">return</span> it;   <span class="c">// 已被排除/删除的不盖章</span>
+    <span class="k">let</span> cur = it.cur;
+    <span class="k">if</span> (ov.name) { <span class="k">const</span> s = <span class="t">splitExt</span>(ov.name); cur = { ...cur, name: ov.name, base: s.base, ext: s.ext }; }
+    <span class="k">if</span> (ov.dir)  cur = { ...cur, dir: <span class="t">normPath</span>(ov.dir) };
+    <span class="k">if</span> (cur === it.cur) <span class="k">return</span> it;                     <span class="c">// 没变就返回原引用，结构共享不破</span>
+    <span class="k">return</span> { ...it, cur, touchedBy: [...it.touchedBy, <span class="s">'__manual__'</span>] };
+  });
+}</code></pre>
+
+    <p>四个设计要点：</p>
+    <ul>
+      <li><b>优先级最高，且只作用于终态。</b>覆盖层在最后一步之后运行，所以它盖过所有积木。反过来说，用户看到的就是最终结果——所见即所得，不会出现"我改的名字又被后面的积木改回去了"这种鬼故事。</li>
+      <li><b>不进 stageCache。</b>覆盖层是常数级开销（只遍历 overrides 的键），所以每次编译都重跑一遍，不参与签名 hash。好处是：改了积木导致 id 集合变化时，覆盖层自动跟着新结果走，不需要任何失效逻辑。</li>
+      <li><b>与排除/删除互斥。</b>已被筛掉的条目即使有 override 也不生效（<code>status !== 'active'</code> 直接返回）。用户如果先手改再被上游筛掉，改的那笔不算数，但记录保留——把上游参数改回来，手改立刻复活。</li>
+      <li><b>可撤销，且可追溯。</b><code>touchedBy</code> 里记 <code>__manual__</code> 伪步骤 id，于是"为什么这个名字变了"永远有答案：<code>nameResolver</code> 遇到它返回「手动修改」。预览表的"原因"列、执行日志、失败报告三处都能显示。</li>
+    </ul>
+
+    <div class="callout c-warn">
+      <span class="ico">!</span>
+      <div>
+        <b>覆盖层也要过冲突检测。</b>手改的名字同样可能撞上目标目录里已有的文件。它不享受任何特权——照样进变更计划、照样被 <code>TARGET_EXISTS</code> 抓到、照样按用户选的 skip / overwrite / autoRename 处理。唯一不同的是冲突详情里会标注"该条为手动改写"，让用户一眼看出是自己签的字还是积木算的。
+      </div>
+    </div>
+
+    <h4>交互：在预览表里双击</h4>
+    <p>不做独立编辑弹窗，就在中栏表格里就地编辑——因为用户改名的判断依据是"这一行周围长什么样"，把他拽到一个只剩一个输入框的弹窗里，等于把上下文抽走了。</p>
+    <ul>
+      <li><b>双击"新文件名"或"目标目录"单元格</b>进入编辑，<code>Enter</code> 提交、<code>Esc</code> 取消、失焦即提交。</li>
+      <li>只允许在<b>最后一步的预览</b>上编辑。中间步骤是只读的——那是积木的中间态，改了没意义（下一步还会覆盖），徒增困惑。</li>
+      <li>提交后该行状态列出现紫色<b>「手动」</b>徽标，工具栏出现 <code>手动 N</code> 计数器，点一下可一键清除全部。</li>
+      <li>空格可见化：首尾空格、连续空格、紧贴扩展名点的空格渲染成橙色 <code>·</code>。这条是刚需——"改了名字但看起来没变"九成是空格问题。</li>
+      <li>手改后的名字仍然参与"序号前缀"之外的格式化校验（非法字符、超长、Windows 保留名），非法就红框拒绝提交，不写进 overrides。</li>
+    </ul>
+
+    <h3>重算时序：一次参数改动的完整链路</h3>
+<pre><code>用户敲下模板里的一个字符
+      │
+      ├─ ① <span class="t">updateParams</span>(stepId, patch)     <span class="c">// 只改 doc，同步、瞬时</span>
+      │     └─ set({ doc })                    <span class="c">// 左栏卡片副标题立刻变</span>
+      │
+      ├─ ② debounce 150ms                     <span class="c">// 文本框 150ms / 数字 80ms / 开关 0ms</span>
+      │
+      ├─ ③ <span class="t">compilePipeline</span>(doc, items, { cache })
+      │     ├─ 计算每步签名 sig_i = hash(sig_{i-1} + type + enabled + params)
+      │     ├─ 逐级比对 stageCache：命中则复用数组引用，整段跳过
+      │     └─ 只重算第 k..n 步                    <span class="c">// 改末步通常只跑 1 步</span>
+      │
+      ├─ ④ 冲突检测 + 策略应用                     <span class="c">// 全局，O(n)</span>
+      │
+      ├─ ⑤ runId 比对：过期结果直接丢弃             <span class="c">// 防止慢编译覆盖新结果</span>
+      │
+      └─ ⑥ set({ compiled }) → 中栏表格 / 状态栏读数 / 右栏样例同时刷新</code></pre>
+
+    <div class="kpi">
+      <div class="kpi-cell"><div class="kpi-l">全量编译（2137 文件 × 7 步）</div><div class="kpi-v">≈15<small>ms</small></div></div>
+      <div class="kpi-cell"><div class="kpi-l">增量重算（只改末步）</div><div class="kpi-v">≈5<small>ms</small></div></div>
+      <div class="kpi-cell"><div class="kpi-l">缓存命中</div><div class="kpi-v">6<small>/7 步</small></div></div>
+      <div class="kpi-cell"><div class="kpi-l">虚拟滚动 DOM 行数</div><div class="kpi-v">&lt;60<small> 节点</small></div></div>
+    </div>
+    <p class="caption">实测数据来自随文档交付的原型（<code>npm run check</code> 可复现；单次运行波动约 ±2ms）。预算 100ms，实际用掉不到 1/5。</p>
+
+    <h4>三个让增量真正生效的细节</h4>
+    <ul>
+      <li><b>结构共享。</b>未命中条目复用对象引用；数组无变化时返回同一个数组。于是 <code>stageCache[i].items === stageCache[i-1].items</code> 就能整段短路——改一个参数常常一步都不用跑。</li>
+      <li><b>行组件按 item 引用 memo。</b>2137 行里只有真正变的几十行重渲染。</li>
+      <li><b>不上 Web Worker。</b>最坏 300ms 只出现在"改第一步"，而 Worker 要付 2137 个对象 <code>structuredClone</code> 的成本 + 双向状态同步复杂度。但 <code>core/</code> 至今不 import 任何 React/DOM，真机阶段（Tauri + 真实 stat + 10 万文件）整块搬进 Worker 零改动。</li>
+    </ul>
+
+    <h3>执行与撤销时序</h3>
+<pre><code><span class="c">// 执行：串行、失败即停、每 200 条让出 UI</span>
+preflight(plan)                        <span class="c">// 建目录、空间 ≥ 需要 ×1.2、可写探测；不通过直接抛</span>
+<span class="k">for</span> (entry of actionable) {
+  signal.throwIfAborted()
+  <span class="k">if</span> (entry.overwrite &amp;&amp; exists(to))  → move(to, backupPath)   <span class="c">// 记 backup</span>
+  <span class="k">if</span> (action === <span class="s">'delete'</span>)         → trash(from, trashDir)   <span class="c">// 记 trash，永不真删</span>
+  <span class="k">else</span>                            → move(from, to)          <span class="c">// 记 move + crossDevice</span>
+  journal.entries.push(entry)        <span class="c">// 每条成功后立刻追加并 flush</span>
+  <span class="k">if</span> (done % 200 === 0) <span class="k">await</span> yieldToUI()
+}
+journal.status = <span class="s">'completed'</span>
+
+<span class="c">// 失败：逆序回滚</span>
+<span class="k">catch</span> (err) {
+  <span class="k">const</span> failed = <span class="k">await</span> rollbackJournal(journal.reverse())
+  journal.status = failed.length ? <span class="s">'aborted'</span> : <span class="s">'rolled-back'</span>
+  <span class="k">throw</span> <span class="k">new</span> <span class="t">ExecutionError</span>(err.message, journal)
+}</code></pre>
+
+    <div class="callout c-danger">
+      <span class="ico">!</span>
+      <div>
+        <b>回滚必须逆序。</b>链式改名 A→B、B→C 时，正序回滚会把 C 还原成 B，而 B 的还原又要求 B 为空——互相踩。
+        逆序则是 C→B、B→A，每一步的前置条件都成立。
+      </div>
+    </div>
+
+    <h4>失败与撤销的三条硬规则</h4>
+    <ol>
+      <li><b>失败即停，不跳过继续。</b>半成品状态比"少做了几个"更难善后。"继续执行剩余"做成显式按钮，第二版再给。</li>
+      <li><b>回滚失败不重试、不递归。</b>把 journal 标 <code>aborted</code>，落盘 <code>rollback-report.json</code>（每条：成功/失败/当前真实位置），UI 逐条列出并提供"重试此条"。这是唯一诚实的做法。</li>
+      <li><b>删除只进暂存区。</b>路径 <code>&lt;appData&gt;/.jianyi/trash/&lt;journalId&gt;/</code>，不依赖系统回收站 API（三平台行为不一致），自己实现行为一致且必然可撤销。</li>
+    </ol>
+
+    <h4>故障注入实测</h4>
+    <div class="card card-tight">
+      <p style="margin:0;font-size:13.5px;color:var(--muted)">
+        在演示文件系统上把第 200 个写操作设成抛错：
+        <b style="color:var(--text)">执行中断于第 199 条 → 逆序回滚 199 条 → 目标目录从 491 个文件回到 5 个，失败 0 条。</b>
+        这就是"半成品不留痕"。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="s5">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">⑤</span><h2>端到端演示：整理 2137 个文件的下载目录</h2></div>
+    <p class="sec-sub">场景：<code>D:/下载</code> 里堆了两年没整理的文件，要筛出音频 → 排除 .lrc/.txt → 去空格 → 加序号前缀 → 移动到目标文件夹。以下每一步的读数都来自原型真实运行。</p>
+
+    <h3>起点：这个目录有多脏</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:180px">类型</th><th style="width:120px">数量</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>音频</td><td><b>486</b></td><td>mp3 402 / flac 61 / wav 23，散落在「音乐」「华语」「欧美」「日语」四个子目录</td></tr>
+          <tr><td>歌词 .lrc</td><td>61</td><td>和音频同名同目录</td></tr>
+          <tr><td>说明 .txt</td><td>13</td><td>解压密码、曲目列表、readme</td></tr>
+          <tr><td>图片</td><td>902</td><td>jpg 612 / png 290</td></tr>
+          <tr><td>视频</td><td>178</td><td>mp4 152 / mkv 26</td></tr>
+          <tr><td>压缩包</td><td>264</td><td>zip 214 / rar 50</td></tr>
+          <tr><td>其他</td><td>233</td><td>pdf 88 / docx 61 / exe 44 / apk 40</td></tr>
+          <tr style="background:#f7faff"><td><b>合计（不含隐藏）</b></td><td><b>2137</b></td><td>其中 <b>137 个</b>文件名带首尾空格、连续空格或全角空格</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chain">
+      <span class="rd">2137<small>数据源</small></span><span class="ar">→</span>
+      <span class="rd">560<small>筛音频+歌词</small></span><span class="ar">→</span>
+      <span class="rd">486<small>排除 lrc/txt</small></span><span class="ar">→</span>
+      <span class="rd">486<small>排序</small></span><span class="ar">→</span>
+      <span class="rd">486<small>去空格</small></span><span class="ar">→</span>
+      <span class="rd">486<small>加序号</small></span><span class="ar">→</span>
+      <span class="rd">486<small>移动</small></span>
+    </div>
+    <p class="caption">状态栏里那条读数链就是这一行。前两步在<b>减少</b>，后四步在<b>保持</b>——因为改名和移动不改变文件数。这正是"逐级预览"要传达的信息：<b>哪一步在筛，哪一步在改写。</b></p>
+
+    <h3>七步走</h3>
+    <div class="timeline">
+
+      <!-- 1 -->
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-source)">
+          <div class="tl-head">
+            <span class="tl-idx">源</span>
+            <span class="tl-name">数据源</span>
+            <span class="tl-read">2137<small>个文件</small></span>
+          </div>
+          <div class="tl-body">
+            <p>选 <code>D:/下载</code>，勾上"包含子文件夹"、不勾"包含隐藏文件"（勾上的话是 2144 个——多出 7 个 <code>.DS_Store</code> 之类的垃圾）。</p>
+<pre><code>{ <span class="s">"path"</span>: <span class="s">"D:/下载"</span>, <span class="s">"recursive"</span>: <span class="k">true</span>, <span class="s">"includeHidden"</span>: <span class="k">false</span> }</code></pre>
+            <p style="color:var(--faint);font-size:12.5px">扫描发生在编译边界，此步 <code>run</code> 是恒等变换。耗时 0.2ms。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-filter)">
+          <div class="tl-head">
+            <span class="tl-idx">1</span>
+            <span class="tl-name">按扩展名筛选 · 保留</span>
+            <span class="tl-read">560<small>排除 1577</small></span>
+          </div>
+          <div class="tl-body">
+            <p>先圈定一个"可能相关"的大集合：音频 + 歌词 + 说明。为什么不直接只留音频？因为真实目录里 <code>.lrc</code> 常常和 <code>.mp3</code> 同名同目录，<b>先圈大再精确排除</b>比一次写对更容易。</p>
+<pre><code>{ <span class="s">"mode"</span>: <span class="s">"keep"</span>,
+  <span class="s">"exts"</span>: [<span class="s">".mp3"</span>, <span class="s">".flac"</span>, <span class="s">".wav"</span>, <span class="s">".lrc"</span>, <span class="s">".txt"</span>] }</code></pre>
+            <div class="mini">
+              <div class="mini-row head"><span>原始文件名</span><span>状态</span><span>原因</span></div>
+              <div class="mini-row"><span class="mono">陈奕迅 - 搁浅.mp3</span><span><span class="pill p-keep">保留</span></span><span class="mono">—</span></div>
+              <div class="mini-row" style="opacity:.55"><span class="mono">IMG_0001.jpg</span><span><span class="pill p-excl">已排除</span></span><span class="mono">扩展名不在列表</span></div>
+            </div>
+            <p style="color:var(--faint);font-size:12.5px;margin-top:9px">1577 个文件被置为 <code>excluded</code>——<b>不是删除</b>，磁盘上原样不动，表格里以灰色删除线留在原位。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-filter)">
+          <div class="tl-head">
+            <span class="tl-idx">2</span>
+            <span class="tl-name">按扩展名筛选 · 排除</span>
+            <span class="tl-read">486<small>排除 74</small></span>
+          </div>
+          <div class="tl-body">
+            <p>上一步顺手捞进来的歌词和说明，这一步踢掉。61 个 <code>.lrc</code> + 13 个 <code>.txt</code> = 74。</p>
+<pre><code>{ <span class="s">"mode"</span>: <span class="s">"exclude"</span>, <span class="s">"exts"</span>: [<span class="s">".lrc"</span>, <span class="s">".txt"</span>] }</code></pre>
+            <p style="color:var(--faint);font-size:12.5px">读数从 560 掉到 486。到这里，"要处理的文件集合"就定下来了。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-order)">
+          <div class="tl-head">
+            <span class="tl-idx">3</span>
+            <span class="tl-name">排序</span>
+            <span class="tl-read">486<small>顺序确定</small></span>
+          </div>
+          <div class="tl-body">
+            <p><b>这一步不能省。</b>下一个积木要用 <code>{序号}</code>，而序号就是"当前数组里的位置"。不排序的话，序号会按文件系统的扫描顺序乱跳，做出来的 <code>001_</code>、<code>002_</code> 毫无意义。</p>
+<pre><code>{ <span class="s">"by"</span>: <span class="s">"name"</span>, <span class="s">"order"</span>: <span class="s">"asc"</span>, <span class="s">"natural"</span>: <span class="k">true</span> }</code></pre>
+            <p style="color:var(--faint);font-size:12.5px">读数不变（486 → 486），但表格顺序变了。这是"数字没变但确实做了事"的典型例子——所以状态栏还要显示每步的<b>改写数</b>。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-transform)">
+          <div class="tl-head">
+            <span class="tl-idx">4</span>
+            <span class="tl-name">去空格</span>
+            <span class="tl-read">486<small>改写 137</small></span>
+          </div>
+          <div class="tl-body">
+            <p>只改主干，扩展名原样保留。三类脏名字一次清掉：</p>
+            <ul style="margin:0 0 9px;font-size:13px">
+              <li>首尾空格：<code>␣␣陈奕迅 - 搁浅.mp3</code></li>
+              <li>扩展名前的尾随空格：<code>周杰伦 - 稻香␣.mp3</code></li>
+              <li>连续空格 / 全角空格：<code>陈奕迅␣␣-␣搁浅.mp3</code>、<code>陈奕迅　-　搁浅.mp3</code></li>
+            </ul>
+<pre><code>{ <span class="s">"where"</span>: <span class="s">"both"</span>, <span class="s">"collapse"</span>: <span class="k">true</span>, <span class="s">"fullWidth"</span>: <span class="k">true</span> }</code></pre>
+            <div class="mini">
+              <div class="mini-row head"><span>原名</span><span>新名</span><span>状态</span></div>
+              <div class="mini-row hl-rename"><span class="mono">␣␣陈奕迅 - 搁浅.mp3</span><span class="mono">陈奕迅 - 搁浅.mp3</span><span><span class="pill p-rename">改名</span></span></div>
+              <div class="mini-row hl-rename"><span class="mono">周杰伦 - 稻香␣.mp3</span><span class="mono">周杰伦 - 稻香.mp3</span><span><span class="pill p-rename">改名</span></span></div>
+              <div class="mini-row"><span class="mono">林俊杰 - 江南.mp3</span><span class="mono">—</span><span><span class="pill p-keep">保留</span></span></div>
+            </div>
+            <p style="color:var(--faint);font-size:12.5px;margin-top:9px">486 个里有 137 个真的变了，其余 349 个原样——它们在这一步的状态是"保留"。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-transform)">
+          <div class="tl-head">
+            <span class="tl-idx">5</span>
+            <span class="tl-name">模板重命名</span>
+            <span class="tl-read">486<small>改写 486</small></span>
+          </div>
+          <div class="tl-body">
+            <p>用上一步排好的顺序，给每个文件加三位序号前缀。</p>
+<pre><code>{ <span class="s">"template"</span>: <span class="s">"{序号:3}_{原名}"</span>, <span class="s">"startAt"</span>: 1, <span class="s">"keepExt"</span>: <span class="k">true</span> }</code></pre>
+            <div class="mini">
+              <div class="mini-row head"><span>原名</span><span>新名</span><span>状态</span></div>
+              <div class="mini-row hl-conflict"><span class="mono">陈奕迅 - 搁浅.mp3</span><span class="mono">001_陈奕迅 - 搁浅.mp3</span><span><span class="pill p-conf">冲突</span></span></div>
+              <div class="mini-row hl-rename"><span class="mono">陈奕迅 - 红模仿.mp3</span><span class="mono">002_陈奕迅 - 红模仿.mp3</span><span><span class="pill p-rename">改名</span></span></div>
+              <div class="mini-row hl-rename"><span class="mono">陈奕迅 - 龙卷风.mp3</span><span class="mono">003_陈奕迅 - 龙卷风.mp3</span><span><span class="pill p-rename">改名</span></span></div>
+            </div>
+            <p style="color:var(--faint);font-size:12.5px;margin-top:9px">
+              右侧面板会实时给出一行样例：<code>陈奕迅 - 搁浅.mp3 → 001_陈奕迅 - 搁浅.mp3</code>。
+              第一个文件标"冲突"是因为目标目录里已经有一个同名文件——见下一节。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="tl-item on">
+        <div class="tl-dot"></div>
+        <div class="tl-card" style="--cat:var(--cat-output)">
+          <div class="tl-head">
+            <span class="tl-idx">6</span>
+            <span class="tl-name">移动 / 复制</span>
+            <span class="tl-read">486<small>改写 486</small></span>
+          </div>
+          <div class="tl-body">
+            <p>把结果送去 <code>D:/整理/音乐</code>，方式选"移动"。</p>
+<pre><code>{ <span class="s">"targetDir"</span>: <span class="s">"D:/整理/音乐"</span>, <span class="s">"operation"</span>: <span class="s">"move"</span>, <span class="s">"subPath"</span>: <span class="s">""</span> }</code></pre>
+            <div class="mini">
+              <div class="mini-row head"><span>新文件名</span><span>新路径</span><span>状态</span></div>
+              <div class="mini-row hl-move"><span class="mono">001_陈奕迅 - 搁浅 (2).mp3</span><span class="mono">D:/整理/音乐</span><span><span class="pill p-move">移动</span></span></div>
+              <div class="mini-row hl-move"><span class="mono">002_陈奕迅 - 红模仿.mp3</span><span class="mono">D:/整理/音乐</span><span><span class="pill p-move">移动</span></span></div>
+            </div>
+            <p style="color:var(--faint);font-size:12.5px;margin-top:9px">若填 <code>{日期:YYYY-MM}</code> 作为子目录模板，就变成按修改月份分目录归档。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>最终计划与冲突处理</h3>
+    <div class="kpi">
+      <div class="kpi-cell"><div class="kpi-l">改名</div><div class="kpi-v">486</div></div>
+      <div class="kpi-cell"><div class="kpi-l">移动</div><div class="kpi-v">486</div></div>
+      <div class="kpi-cell"><div class="kpi-l">删除</div><div class="kpi-v">0</div></div>
+      <div class="kpi-cell"><div class="kpi-l">冲突</div><div class="kpi-v" style="color:#b54708">5</div></div>
+    </div>
+    <p>目标目录里预先躺着 5 个同名文件（<code>001_陈奕迅 - 搁浅.mp3</code> … <code>005_陈奕迅 - 青花瓷.mp3</code>）。冲突检测在编译末尾发现它们，全部标 <code>TARGET_EXISTS</code>，表格里变成橙色行。</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:130px">策略</th><th>计划里的 to 会变成</th><th style="width:230px">适用场景</th></tr></thead>
+        <tbody>
+          <tr><td><b>自动重命名</b>（默认）</td><td><code>001_陈奕迅 - 搁浅 (2).mp3</code></td><td>什么都不想丢，最安全</td></tr>
+          <tr><td><b>跳过</b></td><td>该条目降级为 <code>keep</code>，标 blocked</td><td>目标目录里的旧文件才是权威版本</td></tr>
+          <tr><td><b>覆盖</b></td><td><code>001_陈奕迅 - 搁浅.mp3</code>，<code>overwrite: true</code></td><td>确认要用新文件替换旧的（旧文件进备份区）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout c-ok">
+      <span class="ico">✓</span>
+      <div>
+        确认弹窗里，这 5 条冲突会连同策略一起列出来，并显示
+        <b>涉及数据量 5.74 GB · 新增写入 0 B · 目标盘剩余 130.81 GB</b>。
+        因为全是同盘移动（rename），不额外占空间——这一点必须在点执行前说清楚，否则用户会以为要复制 5.74 GB。
+      </div>
+    </div>
+
+    <h3>执行与撤销</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:200px">观测点</th><th style="width:200px">执行前</th><th style="width:200px">执行后</th><th>撤销后</th></tr></thead>
+        <tbody>
+          <tr><td>目标目录文件数</td><td>5</td><td><b>491</b></td><td>5</td></tr>
+          <tr><td>全盘文件总数</td><td>2149</td><td><b>2149</b>（不变）</td><td>2149</td></tr>
+          <tr><td>撤销日志条目</td><td>0</td><td><b>486</b></td><td>已回滚</td></tr>
+          <tr><td>耗时</td><td>—</td><td>1.2s</td><td>1.0s</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>注意第二行：<b>全盘文件总数不变</b>。移动不是增删，这是验证"没有误删"最快的一个指标，所以原型把它直接显示在执行完成的提示里。</p>
+
+    <div class="callout c-warn">
+      <span class="ico">!</span>
+      <div>
+        <b>故障注入（原型里可勾选）：</b>把第 200 个写操作设成抛错 → 执行中断于第 199 条 → 逆序回滚 199 条 →
+        目标目录从 491 回到 5，失败 0 条。用户看到的不是"成功了 199 个"，而是"全部回到原样，另附一份报告"。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="s6">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">⑥</span><h2>架构与落地</h2></div>
+    <p class="sec-sub">三层隔离，一条硬边界：core 不认识磁盘，执行器不认识积木。</p>
+
+    <figure>
+      <svg viewBox="0 0 1080 340" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Microsoft YaHei,sans-serif">
+        <defs>
+          <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 z" fill="#2f6feb"/>
+          </marker>
+        </defs>
+
+        <rect x="24" y="24" width="330" height="252" rx="10" fill="#f7fbff" stroke="#b9d0fb"/>
+        <text x="42" y="48" font-size="11" font-weight="700" fill="#1a56c4" letter-spacing=".6">core/ · 纯函数层</text>
+        <text x="42" y="66" font-size="11" fill="#5f6772">零 DOM · 零 React · 零 adapter 实现</text>
+        <g font-size="11.5" font-family="ui-monospace" fill="#25303f">
+          <text x="42" y="92">model/item.ts      条目模型</text>
+          <text x="42" y="112">steps/*.ts         10 种积木</text>
+          <text x="42" y="132">engine/compile.ts  编译主循环</text>
+          <text x="42" y="152">engine/stageCache  增量缓存</text>
+          <text x="42" y="172">engine/conflicts   冲突 + 策略</text>
+          <text x="42" y="192">engine/tokens.ts   模板渲染</text>
+          <text x="42" y="212">exec/executor.ts   串行落盘</text>
+          <text x="42" y="232">exec/rollback.ts   逆序回滚</text>
+        </g>
+
+        <rect x="392" y="24" width="250" height="252" rx="10" fill="#fafbfc" stroke="#e4e8ec"/>
+        <text x="410" y="48" font-size="11" font-weight="700" fill="#5f6772" letter-spacing=".6">platform/ · 适配层</text>
+        <text x="410" y="66" font-size="11" fill="#8b939e">唯一跨层契约</text>
+        <g font-size="11.5" font-family="ui-monospace" fill="#25303f">
+          <text x="410" y="92">types.ts</text>
+          <text x="410" y="112">  scanDir / listDir</text>
+          <text x="410" y="130">  move / copy / trash</text>
+          <text x="410" y="148">  freeSpace / canWrite</text>
+          <text x="410" y="176" fill="#0a6b32">mock/memoryAdapter</text>
+          <text x="410" y="194" font-size="10.5" fill="#8b939e">  ← 现在跑的这个</text>
+          <text x="410" y="220" fill="#b45309">tauri/tauriAdapter</text>
+          <text x="410" y="238" font-size="10.5" fill="#8b939e">  ← 只差这一个文件</text>
+        </g>
+
+        <rect x="680" y="24" width="376" height="252" rx="10" fill="#fff" stroke="#e4e8ec"/>
+        <text x="698" y="48" font-size="11" font-weight="700" fill="#5f6772" letter-spacing=".6">ui/ + state/ · 表现层</text>
+        <g font-size="11.5" font-family="ui-monospace" fill="#25303f">
+          <text x="698" y="74">StepStackPanel   dnd-kit 拖拽排序</text>
+          <text x="698" y="94">PreviewTable     tanstack-virtual</text>
+          <text x="698" y="114">ParamsPanel      FieldSpec 驱动</text>
+          <text x="698" y="134">StatusBar        读数链</text>
+          <text x="698" y="154">ExecuteDialog    摘要 + 策略</text>
+          <text x="698" y="182" fill="#7a5af8">usePipelineStore  zustand</text>
+          <text x="698" y="200" font-size="10.5" fill="#8b939e">  debounce + runId 丢弃过期结果</text>
+        </g>
+
+        <g stroke="#2f6feb" stroke-width="1.5" fill="none" marker-end="url(#a4)">
+          <path d="M354,120 L388,120"/>
+          <path d="M642,120 L676,120"/>
+        </g>
+        <text x="371" y="112" font-size="9.5" fill="#1a56c4" text-anchor="middle">adapter</text>
+        <text x="659" y="112" font-size="9.5" fill="#1a56c4" text-anchor="middle">compiled</text>
+        <text x="540" y="312" font-size="11" fill="#8b939e" text-anchor="middle">PlanEntry[] 是三层之间唯一流动的数据形状</text>
+      </svg>
+      <figcaption>图 3 · 分层。core 不 import 任何平台代码；platform 不认识 core 的业务；ui 只读 compiled 结果。</figcaption>
+    </figure>
+
+    <h3>前置：三样环境依赖</h3>
+    <p>跑原型不需要 Rust（纯前端）。要打成真桌面应用，Windows 上需要这三样——好消息是后两样新系统基本自带：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:190px">依赖</th><th>作用</th><th style="width:210px">怎么装</th></tr></thead>
+        <tbody>
+          <tr><td><b>MSVC 生成工具</b><br><span style="color:var(--faint);font-size:12px">C++ 编译器 + Windows SDK</span></td><td>Rust 在 Windows 上链接 exe 要用 <code>link.exe</code> 和 <code>kernel32.lib</code></td><td><code>winget install Microsoft.VisualStudio.2022.BuildTools</code>，勾"使用 C++ 的桌面开发"</td></tr>
+          <tr><td><b>WebView2 运行时</b></td><td>Tauri 窗口的渲染内核。Win11 自带；Win10 可能需单独装</td><td>一般不用管，缺了 Tauri 会提示</td></tr>
+          <tr><td><b>Rust 工具链</b></td><td>rustup + cargo + rustc，编译 <code>src-tauri</code></td><td><code>winget install -e --id Rustlang.Rustup</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout c-info">
+      <span class="ico">i</span>
+      <div>
+        <b>唯一要盯的一件事：目标必须是 <code>x86_64-pc-windows-msvc</code>。</b>
+        rustup 装的时候会自己调 <code>vswhere.exe</code> 找 MSVC，找到了就用 msvc；找不到会静默退化成 <code>gnu</code>——GNU 版要额外配 MinGW，和 Tauri 生态的坑明显更多。装完立刻验证：<code>rustc -vV</code> 看 <code>host:</code> 那一行。<br>
+        另外 rustup 只改用户级 PATH，<b>装完必须重开终端和 IDE</b>，否则 <code>cargo</code> 永远找不到。
+      </div>
+    </div>
+
+    <h3>已经接上了：13 个方法 → 13 条 Rust 命令</h3>
+    <p>桌面壳已经跑通，<code>core/</code>、<code>state/</code>、<code>ui/</code> 的<b>业务逻辑一行没改</b>——只换了适配器实现，外加把写死的 <code>MemoryAdapter</code> 类型放宽成 <code>PlatformAdapter</code>。</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:150px">适配器方法</th><th style="width:160px">Rust 命令</th><th>为什么这么写</th></tr></thead>
+        <tbody>
+          <tr><td><code>scanDir</code></td><td><code>scan_dir</code></td><td>递归遍历 + stat <b>压进一个命令</b>。逐文件 IPC 的话，2000 个文件光序列化就要几百毫秒。单个条目没权限就跳过，不让整次扫描失败</td></tr>
+          <tr><td><code>listDir</code></td><td><code>list_dir</code></td><td>前端带 2 秒缓存。冲突检测会对同一批目标目录反复问，486 个文件的执行能问出上万次</td></tr>
+          <tr><td><code>move</code></td><td><code>move_path</code></td><td>同盘 <code>rename</code>；<code>raw_os_error == 17</code>（EXDEV / ERROR_NOT_SAME_DEVICE）降级 copy+delete。目标已存在就报错，不静默覆盖</td></tr>
+          <tr><td><code>trash</code></td><td><code>trash_path</code></td><td>同名加 <code>(2)</code> 后缀。<b>暂存区绝不能覆盖已暂存的文件</b>，否则撤销链会断</td></tr>
+          <tr><td><code>restore</code></td><td><code>restore_path</code></td><td>同样处理跨盘</td></tr>
+          <tr><td><code>allFilePaths</code></td><td><code>all_file_paths</code></td><td><b>必须带 scope</b>（源目录 + 各输出目录）。真机上不可能遍历整块盘，这是接壳时最容易踩的一脚</td></tr>
+          <tr><td><code>freeSpace</code></td><td><code>free_space</code></td><td><code>fs4::available_space</code>，比整个 sysinfo 轻得多</td></tr>
+          <tr><td><code>canWrite</code></td><td><code>can_write</code></td><td>真写一个探针文件再删掉，比看权限位可靠</td></tr>
+          <tr><td>其余 5 个</td><td><code>path_exists</code> / <code>mkdirp</code> / <code>copy_path</code> / <code>has_child</code> / <code>app_data_dir</code></td><td><code>has_child</code> 大小写不敏感比较；<code>app_data_dir</code> 交给 Tauri 解析，不硬编码盘符</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>八个只有真机上才会暴露的坑</h4>
+    <p style="margin-top:-4px">下面每一条都是实际跑出来的，不是预判——浏览器里用内存文件系统时，一个都不会出现。</p>
+    <ul>
+      <li><b>路径分隔符必须统一成正斜杠。</b>core 全程 <code>normPath()</code>，Rust 侧 <code>fwd()</code> 也转正斜杠并剥掉 <code>\\?\</code> 前缀。两边不一致的话，<code>Set&lt;string&gt;</code> 查冲突永远查不中，而且不报错——最难查的那类 bug。</li>
+      <li><b>Windows 会静默吃掉路径结尾的空格和点。</b><code>CreateFileW</code> 拿到 <code>七里香.mp3␣</code> 会去找 <code>七里香.mp3</code>，于是文件明明在、<code>exists()</code> 却说没有，执行器报"源文件不存在"。必须用 <code>\\?\</code> verbatim 前缀关掉这层规范化。而"去空格"积木恰恰就是在处理这类文件，等于必然踩上。</li>
+      <li><b>只改大小写的改名在 Windows 上不可靠。</b><code>MoveFileEx</code> 对同一文件的大小写改名经常静默成功但名字没变，必须走临时名两步。<code>CASE_ONLY_RENAME</code> 恰恰是被允许的操作，很容易漏。</li>
+      <li><b>预检不能把"目录还没建"判成"没权限"。</b>第一次执行时目标目录通常不存在，探针文件写不进去就 <code>canWrite = false</code>，用户永远建不出第一个目标目录。正确做法是往上找最近一个存在的祖先再探针。</li>
+      <li><b>Tauri 的 <code>Err(String)</code> 是以字符串 reject 的</b>，不是 <code>Error</code>。上层到处 <code>(err as Error).message</code> 会拿到 <code>undefined</code>，弹窗上只剩一句"执行中断"，什么原因都看不到。所有 IPC 必须走同一个包装函数统一成 <code>Error</code>。</li>
+      <li><b><code>allFilePaths</code> 必须带 scope。</b>传源目录 + 各个输出目录。真机上遍历整块盘会卡死。</li>
+      <li><b>没选文件夹时不能让 <code>scanDir('')</code> 抛错。</b>真实模式启动时根目录可能为空，得给一个空数据集 + 引导页，而不是红屏。演示数据也要显式打黄标——它和真磁盘长得一模一样，不标用户会以为自己在改真文件。</li>
+      <li><b>关掉执行弹窗不能把撤销入口一起关掉。</b>撤销横幅原本依赖 <code>exec.status === 'done'</code>，一关弹窗状态就变成 <code>idle</code>，横幅跟着消失，用户再也撤不回来。而"可撤销"正是这个工具的核心承诺。改成只要 journal 还在，入口就一直在。</li>
+    </ul>
+
+    <h4>还没做的</h4>
+    <ul>
+      <li><b>崩溃恢复。</b>journal 目前只在内存里。要每条 flush 到 <code>&lt;appData&gt;/journal.jsonl</code>，启动时检测未完成记录并提示恢复。这是断电/强杀后能救回半成品的关键，值得单独做一轮。</li>
+      <li><b>把 core 搬进 Worker。</b>core 至今不 import React/DOM，整块搬过去零改动。十万文件级别再考虑。</li>
+    </ul>
+
+    <h3>明确不做（第一版）</h3>
+    <div class="grid-2">
+      <div class="card card-tight">
+        <b>不做长期驻留的监控</b>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--muted)">不做文件监控、不自动触发。那是 Hazel / File Juggler 的领域，本期只做手动触发的一次性批量任务。</p>
+      </div>
+      <div class="card card-tight">
+        <b>不做分支 / DAG</b>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--muted)">线性栈够用。真要分支，内部把栈编译成 DAG 求值即可，对外仍然只呈现"步骤"，不暴露节点与边。</p>
+      </div>
+      <div class="card card-tight">
+        <b>不做百万级</b>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--muted)">目标万级以内。当前 2137 × 7 步 ≈ 15ms，余量足够。</p>
+      </div>
+      <div class="card card-tight">
+        <b>不做真删</b>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--muted)">一律进暂存区，不接系统回收站 API（三平台行为不一致）。执行完提供"清空暂存区"。</p>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <p style="font-size:13px;color:var(--faint);margin:0">
+      本文档所有读数（2137 → 560 → 486、≈15ms、486 个操作、5 个冲突）均来自随附原型的真实运行，
+      可用 <code>npm run check</code> 复现。
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    鉴易 · 低代码可视化文件处理工作台 —— 设计方案 v1.0
+  </div>
+</footer>
+
+</body>
+</html>

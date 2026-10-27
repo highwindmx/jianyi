@@ -1,0 +1,17 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icon-source.png
+
+# 本地调试截图（README 用的那几张在 docs/img/，已纳入版本管理）
+shots/
+
+# 编辑器与工具
+.vscode/
+.idea/
+.workbuddy-ai/
+*.log

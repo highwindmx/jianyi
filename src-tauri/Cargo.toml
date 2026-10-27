@@ -1,0 +1,33 @@
+[package]
+name = "jianyi"
+version = "0.1.0"
+description = "鉴易 · 低代码可视化文件处理工作台"
+authors = ["鉴易"]
+edition = "2021"
+rust-version = "1.77.2"
+
+# Tauri 需要 lib 形式，才能在移动端复用同一套业务代码
+[lib]
+name = "jianyi_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+# 只为了 available_space() —— 比整个 sysinfo 轻得多
+fs4 = { version = "0.13", features = ["sync"] }
+
+[profile.release]
+# codegen-units = 1 + lto = true 能再压掉一点体积，但首次全量编译要一个多小时，
+# 日常发版不划算。thin LTO 配 16 个编译单元，体积只差几 MB，速度快 3~4 倍。
+codegen-units = 16
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true
