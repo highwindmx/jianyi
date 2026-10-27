@@ -3,6 +3,7 @@ name = "jianyi"
 version = "0.1.0"
 description = "鉴易 · 低代码可视化文件处理工作台"
 authors = ["鉴易"]
+license = "MIT"
 edition = "2021"
 rust-version = "1.77.2"
 

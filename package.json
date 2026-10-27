@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "低代码可视化文件处理工作台 —— 拖积木搭文件处理流程，实时逐级预览，一键执行",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
