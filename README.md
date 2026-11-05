@@ -238,3 +238,10 @@ npx tauri dev --config src-tauri/tauri.test.conf.json
 [MIT](LICENSE) © 2026 highwindmx
 
 Powered by WorkBuddy
+
+## 许可证
+
+本项目基于 [GNU General Public License v3.0](LICENSE) 开源，版权 © 2026 highwindmx。
+
+你可以自由使用、修改和分发本项目的代码，但任何衍生作品必须以相同的 GPL-3.0 许可证发布。
+Powered by WorkBuddy
